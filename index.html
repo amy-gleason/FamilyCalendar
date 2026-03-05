@@ -1,0 +1,1960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Where in the World is Amy?</title>
+<style>
+  :root {
+    --bg: #FAFBFE;
+    --card: #FFFFFF;
+    --border: #E8ECF4;
+    --text: #1E293B;
+    --muted: #64748B;
+    --accent: #FF8200;
+    --accent-light: #FFF4E6;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  /* Hero */
+  .hero {
+    background: linear-gradient(135deg, #0C1445 0%, #1B2A6B 50%, #243B8C 100%);
+    color: #fff;
+    padding: 32px clamp(16px, 5vw, 48px) 28px;
+  }
+  .hero-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .hero h1 {
+    font-size: clamp(22px, 4vw, 32px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .hero-controls {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .hero-btn {
+    background: rgba(255,255,255,0.2);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 999px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .hero-btn:hover { background: rgba(255,255,255,0.3); }
+  .hero-btn.primary { background: #fff; color: #1B2A6B; border-color: #fff; }
+  .hero-btn.primary:hover { background: #E8ECF4; }
+
+  /* Tiles strip */
+  .tiles-strip {
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: 0 clamp(16px, 5vw, 48px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    position: relative;
+    z-index: 2;
+  }
+  .tiles-inner {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0;
+    /* Pull tiles up to overlap header */
+    margin-top: -20px;
+    padding-bottom: 16px;
+  }
+  .hero-tile {
+    background: #fff;
+    border-radius: 16px;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border-left: 4px solid #CBD5E1;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .hero-tile:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+  }
+  .hero-tile.active {
+    border-left-color: #FF8200;
+    background: linear-gradient(135deg, #FFF7ED, #FFF);
+  }
+  .tile-when {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  .hero-tile.active .tile-when { color: #EA580C; }
+  .tile-title {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--text);
+  }
+  .tile-loc {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .tile-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    width: fit-content;
+  }
+  @media (max-width: 640px) {
+    .tiles-inner { grid-template-columns: 1fr; }
+  }
+
+  /* Main content */
+  .main { padding: 24px clamp(16px, 5vw, 48px); max-width: 1200px; margin: 0 auto; }
+
+  /* Location legend */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 24px;
+    align-items: center;
+  }
+  .legend-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid;
+  }
+  .legend-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+  }
+
+  /* Calendar */
+  .calendar-section {
+    background: var(--card);
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    padding: 20px;
+    margin-bottom: 28px;
+  }
+  .month-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .month-title { font-size: 20px; font-weight: 700; }
+  .nav-btn {
+    background: var(--accent-light);
+    color: var(--accent);
+    border: none;
+    border-radius: 12px;
+    width: 40px; height: 40px;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+  }
+  .nav-btn:hover { background: #FFE0B2; }
+
+  .month-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 4px;
+  }
+  .weekday-label {
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 8px 0;
+  }
+  .day-cell {
+    min-height: 100px;
+    border-radius: 12px;
+    background: #F8FAFC;
+    border: 1px solid #F1F5F9;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    transition: border-color 0.15s;
+  }
+  .day-cell:hover { border-color: var(--accent); }
+  .day-cell.today { border-color: var(--accent); background: var(--accent-light); }
+  .day-cell.empty { visibility: hidden; }
+  .day-num {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    padding: 2px 4px;
+  }
+  .day-cell.today .day-num {
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  .event-chip {
+    border-radius: 8px;
+    padding: 4px 6px;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.3;
+    cursor: pointer;
+    border: 1px solid;
+    transition: transform 0.1s;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .event-chip:hover { transform: scale(1.02); }
+  .event-chip .chip-loc {
+    font-size: 10px;
+    opacity: 0.8;
+    display: block;
+    margin-top: 1px;
+  }
+
+  /* Canceled & tentative chips */
+  .event-chip.canceled {
+    opacity: 0.7;
+    background: #F1F5F9 !important;
+    border-color: #CBD5E1 !important;
+    color: #64748B !important;
+  }
+  .event-chip.canceled .chip-title {
+    text-decoration: line-through;
+  }
+  .chip-cancel-label {
+    display: block;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #DC2626 !important;
+    margin-bottom: 1px;
+  }
+  .event-chip.tentative {
+    border-style: dashed;
+    opacity: 0.75;
+  }
+
+  /* Canceled & tentative cards */
+  .trip-card.canceled {
+    opacity: 0.6;
+    background: #F8FAFC;
+  }
+  .trip-card.canceled .card-title {
+    text-decoration: line-through;
+    color: var(--muted);
+  }
+  .trip-card.tentative {
+    border-style: dashed;
+    border-color: #FCD34D;
+  }
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    width: fit-content;
+  }
+  .status-pill.canceled { background: #FEE2E2; color: #DC2626; }
+  .status-pill.tentative { background: #FEF3C7; color: #D97706; }
+
+  /* Upcoming */
+  .section-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .upcoming-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .trip-card {
+    background: var(--card);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: box-shadow 0.15s, transform 0.15s;
+  }
+  .trip-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-1px); }
+  .trip-card .card-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border: 1px solid;
+    width: fit-content;
+  }
+  .trip-card .card-title { font-size: 16px; font-weight: 600; }
+  .trip-card .card-dates { font-size: 13px; color: var(--muted); }
+  .trip-card .card-notes { font-size: 13px; color: #475569; }
+  .trip-card .card-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .card-btn {
+    border: 1px solid var(--border);
+    background: #F8FAFC;
+    color: var(--text);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .card-btn:hover { background: #E2E8F0; }
+  .card-btn.send { background: #ECFDF5; color: #059669; border-color: #A7F3D0; }
+  .card-btn.send:hover { background: #D1FAE5; }
+  .card-btn.danger { background: #FEF2F2; color: #DC2626; border-color: #FECACA; }
+  .card-btn.danger:hover { background: #FEE2E2; }
+
+  .empty-state {
+    text-align: center;
+    color: var(--muted);
+    padding: 40px;
+    grid-column: 1 / -1;
+    background: var(--card);
+    border-radius: 16px;
+    border: 2px dashed var(--border);
+  }
+
+  /* Send all banner */
+  .send-all-btn {
+    background: #059669;
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 6px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .send-all-btn:hover { background: #047857; }
+
+  /* Side panel tabs */
+  .side-tabs {
+    position: fixed;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 60;
+  }
+  .side-tab {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-right: none;
+    border-radius: 12px 0 0 12px;
+    padding: 12px 10px;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    box-shadow: -2px 2px 8px rgba(0,0,0,0.08);
+    transition: background 0.15s, transform 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    writing-mode: vertical-lr;
+    text-orientation: mixed;
+  }
+  .side-tab:hover { background: #F1F5F9; transform: translateX(-4px); }
+  .side-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .side-tab-label { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+
+  /* Side panel */
+  .side-panel {
+    position: fixed;
+    right: 0;
+    top: 0;
+    height: 100vh;
+    width: 400px;
+    max-width: 100vw;
+    background: var(--card);
+    border-left: 1px solid var(--border);
+    box-shadow: -4px 0 24px rgba(0,0,0,0.12);
+    z-index: 70;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    display: flex;
+    flex-direction: column;
+  }
+  .side-panel.active { transform: translateX(0); }
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .panel-header h2 { font-size: 18px; font-weight: 700; margin: 0; }
+  .panel-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 8px;
+    transition: background 0.15s;
+  }
+  .panel-close:hover { background: #F1F5F9; color: var(--text); }
+  .panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px;
+  }
+  .panel-section { display: none; }
+  .panel-section.active { display: block; }
+  .panel-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.3);
+    z-index: 65;
+    display: none;
+  }
+  .panel-overlay.active { display: block; }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 100;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: var(--card);
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    padding: 28px;
+    width: min(520px, 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .modal h3 { font-size: 20px; font-weight: 700; }
+  label { font-size: 13px; color: var(--muted); font-weight: 600; display: block; margin-bottom: 4px; }
+  input, textarea {
+    width: 100%;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: #F8FAFC;
+    color: var(--text);
+    padding: 10px 14px;
+    font-size: 14px;
+    font-family: inherit;
+    transition: border-color 0.15s;
+  }
+  input:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  textarea { min-height: 80px; resize: vertical; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+  .modal-delete { margin-right: auto; background: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; border-radius: 12px; padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+  .modal-delete:hover { background: #FECACA; }
+  .modal-btn {
+    border: none;
+    border-radius: 999px;
+    padding: 10px 20px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .modal-btn.cancel { background: #F1F5F9; color: var(--muted); }
+  .modal-btn.save { background: var(--accent); color: #fff; }
+
+  /* Toast notification */
+  .toast-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(2px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 150;
+  }
+  .toast-overlay.active { display: flex; }
+  .toast-box {
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    padding: 28px;
+    width: min(420px, 90vw);
+    text-align: center;
+  }
+  .toast-box .toast-icon { font-size: 40px; margin-bottom: 12px; }
+  .toast-box .toast-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .toast-box .toast-msg { font-size: 14px; color: var(--muted); margin-bottom: 20px; line-height: 1.6; }
+  .toast-box .toast-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .toast-btn {
+    border: none;
+    border-radius: 999px;
+    padding: 10px 20px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .toast-btn.primary { background: #059669; color: #fff; }
+  .toast-btn.secondary { background: #F1F5F9; color: var(--muted); }
+
+  /* FAB */
+  .fab {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(255,130,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s, box-shadow 0.15s;
+    z-index: 50;
+  }
+  .fab:hover { transform: scale(1.1); box-shadow: 0 6px 20px rgba(255,130,0,0.5); }
+
+  /* Status bar */
+  .status-bar { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+
+  /* Message Board */
+  .board-section {
+    background: var(--card);
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    padding: 24px;
+    margin-bottom: 28px;
+  }
+  .board-section h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .msg-form {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .msg-form input, .msg-form textarea {
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: #F8FAFC;
+    color: var(--text);
+    padding: 10px 14px;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  .msg-form input { width: 160px; }
+  .msg-form textarea { flex: 1; min-width: 200px; min-height: 42px; height: 42px; resize: vertical; }
+  .msg-form button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    padding: 10px 20px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .msg-list { display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto; }
+  .msg-item {
+    background: #F8FAFC;
+    border: 1px solid #F1F5F9;
+    border-radius: 14px;
+    padding: 12px 16px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .msg-avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .msg-body { flex: 1; }
+  .msg-name { font-weight: 600; font-size: 14px; }
+  .msg-time { font-size: 11px; color: var(--muted); margin-left: 8px; }
+  .msg-text { font-size: 14px; color: #334155; margin-top: 2px; white-space: pre-wrap; }
+  .msg-delete {
+    background: none; border: none; color: #CBD5E1; cursor: pointer; font-size: 16px; padding: 0 4px;
+    opacity: 0; transition: opacity 0.15s;
+  }
+  .msg-item:hover .msg-delete { opacity: 1; }
+  .msg-delete:hover { color: #EF4444; }
+  .msg-empty { text-align: center; color: var(--muted); padding: 20px; font-size: 14px; }
+
+  /* Photo Gallery */
+  .gallery-section {
+    background: var(--card);
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    padding: 24px;
+    margin-bottom: 28px;
+  }
+  .gallery-section h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .gallery-drop {
+    border: 2px dashed #CBD5E1;
+    border-radius: 16px;
+    padding: 24px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    margin-bottom: 16px;
+  }
+  .gallery-drop.dragover { border-color: var(--accent); background: var(--accent-light); }
+  .gallery-drop input { display: none; }
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  .gallery-item {
+    position: relative;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #F1F5F9;
+    aspect-ratio: 4/3;
+    cursor: pointer;
+  }
+  .gallery-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .gallery-item .photo-caption {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,0.7));
+    color: #fff;
+    padding: 20px 10px 8px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .gallery-item .photo-delete {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 28px; height: 28px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .gallery-item:hover .photo-delete { opacity: 1; }
+  .gallery-empty { text-align: center; color: var(--muted); padding: 20px; font-size: 14px; grid-column: 1/-1; }
+
+  /* Photo lightbox */
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.9);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    cursor: pointer;
+  }
+  .lightbox.active { display: flex; }
+  .lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 12px; }
+  .lightbox-caption { position: fixed; bottom: 24px; color: #fff; font-size: 16px; text-align: center; }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    .day-cell { min-height: 70px; }
+    .event-chip { font-size: 10px; padding: 2px 4px; }
+    .event-chip .chip-loc { display: none; }
+    .hero-controls { width: 100%; }
+    .hero-btn { flex: 1; text-align: center; font-size: 12px; padding: 8px 10px; }
+    .status-banner { flex-direction: column; align-items: flex-start; }
+    .side-panel { width: 100vw; }
+    .side-tabs { top: auto; bottom: 16px; right: 8px; transform: none; flex-direction: row; }
+    .side-tab { writing-mode: horizontal-tb; border-radius: 12px; border-right: 1px solid var(--border); padding: 10px 14px; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="hero">
+    <div class="hero-top">
+      <h1>Where in the World is Amy?</h1>
+      <div class="hero-controls">
+        <button class="hero-btn" id="export-ics-btn">Export .ics</button>
+        <button class="hero-btn" id="import-ics-btn">Import ICS</button>
+        <button class="hero-btn" id="import-json-btn">Import JSON</button>
+        <button class="hero-btn" id="export-json-btn">Export JSON</button>
+        <button class="hero-btn primary" id="backup-btn">Backup</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tiles-strip">
+    <div class="tiles-inner" id="hero-tiles">
+      <!-- Filled by JS -->
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="status-bar" id="status-text"></div>
+
+    <div class="legend" id="legend">
+      <!-- legend chips filled by JS, email button appended here -->
+    </div>
+
+    <section class="calendar-section">
+      <div class="month-nav">
+        <button class="nav-btn" id="prev-month">&larr;</button>
+        <div class="month-title" id="month-title">Month</div>
+        <button class="nav-btn" id="next-month">&rarr;</button>
+      </div>
+      <div class="month-grid" id="month-grid"></div>
+    </section>
+
+  </div>
+
+  <!-- Side panel tabs -->
+  <div class="side-tabs" id="side-tabs">
+    <button class="side-tab" data-panel="messages" title="Messages">
+      &#x1F4AC;<span class="side-tab-label">Messages</span>
+    </button>
+    <button class="side-tab" data-panel="photos" title="Photos">
+      &#x1F4F7;<span class="side-tab-label">Photos</span>
+    </button>
+  </div>
+
+  <!-- Side panel overlay -->
+  <div class="panel-overlay" id="panel-overlay"></div>
+
+  <!-- Side panel -->
+  <div class="side-panel" id="side-panel">
+    <div class="panel-header">
+      <h2 id="panel-title">Messages</h2>
+      <button class="panel-close" id="panel-close">&times;</button>
+    </div>
+    <div class="panel-body">
+      <!-- Messages section -->
+      <div class="panel-section active" id="panel-messages">
+        <div class="msg-form" id="msg-form">
+          <input type="text" id="msg-name" placeholder="Your name" maxlength="30" />
+          <textarea id="msg-text" placeholder="Leave a message for Amy..." maxlength="500"></textarea>
+          <button id="msg-send">Post</button>
+        </div>
+        <div class="msg-list" id="msg-list"></div>
+      </div>
+
+      <!-- Photos section -->
+      <div class="panel-section" id="panel-photos">
+        <div class="gallery-drop" id="photo-drop">
+          <div>Drop photos here or click to upload</div>
+          <div style="font-size:12px;margin-top:4px;opacity:0.7">Add captions to remember where you were!</div>
+          <input type="file" id="photo-input" accept="image/*" multiple />
+        </div>
+        <div class="gallery-grid" id="gallery-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox">
+    <img id="lightbox-img" src="" alt="" />
+    <div class="lightbox-caption" id="lightbox-caption"></div>
+  </div>
+
+  <!-- Send invite toast -->
+  <div class="toast-overlay" id="invite-toast">
+    <div class="toast-box">
+      <div class="toast-icon">&#9992;</div>
+      <div class="toast-title">Trip Saved!</div>
+      <div class="toast-msg" id="toast-msg">Send a calendar invite to volgril71@gmail.com so it shows on the family calendar?</div>
+      <div class="toast-actions">
+        <a class="toast-btn primary" id="toast-send" href="#" target="_blank" rel="noopener">Send Calendar Invite</a>
+        <button class="toast-btn secondary" id="toast-skip">Skip for now</button>
+      </div>
+    </div>
+  </div>
+
+  <button class="fab" id="add-trip-btn" title="Add Trip">+</button>
+
+  <input type="file" id="import-json-input" accept="application/json" hidden />
+
+  <div class="modal-overlay" id="event-modal">
+    <form class="modal" id="event-form">
+      <h3 id="modal-title">Add trip</h3>
+      <input type="hidden" id="event-id" />
+      <div><label for="event-title">Title</label><input type="text" id="event-title" required /></div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <label style="display:inline;margin:0;cursor:pointer;"><input type="checkbox" id="event-allday" style="width:auto;margin-right:4px;" /> All day</label>
+      </div>
+      <div><label for="event-start" id="start-label">Start</label><input type="datetime-local" id="event-start" required /></div>
+      <div id="duration-wrap">
+        <label for="event-duration">Duration</label>
+        <select id="event-duration" style="width:100%;border-radius:12px;border:1px solid var(--border);background:#F8FAFC;color:var(--text);padding:10px 14px;font-size:14px;font-family:inherit;">
+          <option value="0">Custom end time</option>
+          <option value="1">1 day</option>
+          <option value="2">2 days</option>
+          <option value="3">3 days</option>
+          <option value="4">4 days</option>
+          <option value="5">5 days</option>
+          <option value="7">1 week</option>
+          <option value="h1">1 hour</option>
+          <option value="h2">2 hours</option>
+          <option value="h4">4 hours</option>
+          <option value="h8">8 hours</option>
+        </select>
+      </div>
+      <div id="end-wrap"><label for="event-end">End</label><input type="datetime-local" id="event-end" required /></div>
+      <div><label for="event-tz">Timezone</label>
+        <select id="event-tz" style="width:100%;border-radius:12px;border:1px solid var(--border);background:#F8FAFC;color:var(--text);padding:10px 14px;font-size:14px;font-family:inherit;" required>
+          <option value="America/New_York">Eastern (New York)</option>
+          <option value="America/Chicago" selected>Central (Chicago)</option>
+          <option value="America/Denver">Mountain (Denver)</option>
+          <option value="America/Los_Angeles">Pacific (Los Angeles)</option>
+          <option value="America/Anchorage">Alaska</option>
+          <option value="Pacific/Honolulu">Hawaii</option>
+          <option value="Europe/London">London (GMT/BST)</option>
+          <option value="Europe/Paris">Paris (CET)</option>
+          <option value="Europe/Berlin">Berlin (CET)</option>
+          <option value="Asia/Tokyo">Tokyo (JST)</option>
+          <option value="Asia/Dubai">Dubai (GST)</option>
+          <option value="Australia/Sydney">Sydney (AEST)</option>
+        </select>
+      </div>
+      <div><label for="event-location">Location</label><input type="text" id="event-location" /></div>
+      <div><label for="event-notes">Notes</label><textarea id="event-notes"></textarea></div>
+      <div>
+        <label for="event-status">Status</label>
+        <select id="event-status" style="width:100%;border-radius:12px;border:1px solid var(--border);background:#F8FAFC;color:var(--text);padding:10px 14px;font-size:14px;font-family:inherit;">
+          <option value="confirmed">Confirmed</option>
+          <option value="tentative">Tentative / Maybe</option>
+          <option value="canceled">Canceled</option>
+        </select>
+      </div>
+      <div id="cancel-reason-wrap" style="display:none;">
+        <label for="event-cancel-reason">Cancel reason (shown to family)</label>
+        <input type="text" id="event-cancel-reason" placeholder="e.g. Home sick" />
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="modal-delete" id="modal-delete-btn" style="display:none;">🗑 Delete</button>
+        <button type="button" class="modal-btn cancel" id="cancel-modal">Cancel</button>
+        <button type="submit" class="modal-btn save">Save Trip</button>
+      </div>
+    </form>
+  </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const STORAGE_KEY = 'family_travel_events_v1';
+  const FAMILY_EMAIL = 'volgril71@gmail.com';
+
+  // Location color map
+  const LOCATIONS = [
+    { match: ['nyc', 'new york', 'cornell', 'google event'], bg: '#FEE2E2', border: '#FCA5A5', text: '#DC2626', label: 'New York' },
+    { match: ['dc', 'washington', 'health prom'], bg: '#CCFBF1', border: '#5EEAD4', text: '#0D9488', label: 'Washington DC' },
+    { match: ['london', 'uk', 'digital services europe'], bg: '#DBEAFE', border: '#93C5FD', text: '#2563EB', label: 'London' },
+    { match: ['vegas', 'las vegas'], bg: '#FEF3C7', border: '#FCD34D', text: '#D97706', label: 'Las Vegas' },
+    { match: ['jacksonville', 'jax', 'optum', 'sawgrass'], bg: '#D1FAE5', border: '#6EE7B7', text: '#059669', label: 'Jacksonville' },
+    { match: ['palm beach', 'pbi'], bg: '#FFEDD5', border: '#FDBA74', text: '#EA580C', label: 'Palm Beach' },
+    { match: ['nashville', 'home'], bg: '#F3E8FF', border: '#D8B4FE', text: '#7C3AED', label: 'Nashville' },
+  ];
+  const DEFAULT_LOC = { bg: '#F1F5F9', border: '#CBD5E1', text: '#475569', label: 'Travel' };
+
+  function getLocColor(evt) {
+    const haystack = ((evt.title || '') + ' ' + (evt.location || '')).toLowerCase();
+    return LOCATIONS.find(l => l.match.some(m => haystack.includes(m))) || DEFAULT_LOC;
+  }
+
+  // DOM refs
+  const $ = id => document.getElementById(id);
+  const modal = $('event-modal'), form = $('event-form'), modalTitle = $('modal-title');
+  const idField = $('event-id'), titleField = $('event-title'), startField = $('event-start');
+  const endField = $('event-end'), tzField = $('event-tz'), locationField = $('event-location');
+  const notesField = $('event-notes'), statusText = $('status-text');
+  const statusField = $('event-status'), cancelReasonField = $('event-cancel-reason');
+  const cancelReasonWrap = $('cancel-reason-wrap');
+  const allDayField = $('event-allday'), durationField = $('event-duration');
+  const endWrap = $('end-wrap'), startLabel = $('start-label');
+  const modalDeleteBtn = $('modal-delete-btn');
+
+  statusField.addEventListener('change', () => {
+    cancelReasonWrap.style.display = statusField.value === 'canceled' ? 'block' : 'none';
+  });
+
+  // All-day toggle: switch between date and datetime-local inputs
+  allDayField.addEventListener('change', () => {
+    const isAllDay = allDayField.checked;
+    startField.type = isAllDay ? 'date' : 'datetime-local';
+    endField.type = isAllDay ? 'date' : 'datetime-local';
+    // Convert existing values
+    if (isAllDay) {
+      if (startField.value) startField.value = startField.value.slice(0, 10);
+      if (endField.value) endField.value = endField.value.slice(0, 10);
+      // Hide hour-based durations, show only day-based
+      Array.from(durationField.options).forEach(opt => {
+        opt.hidden = opt.value.startsWith('h');
+      });
+    } else {
+      if (startField.value && startField.value.length === 10) startField.value = startField.value + 'T09:00';
+      if (endField.value && endField.value.length === 10) endField.value = endField.value + 'T17:00';
+      Array.from(durationField.options).forEach(opt => { opt.hidden = false; });
+    }
+    updateEndFromDuration();
+  });
+
+  // Duration picker: auto-calculate end from start + duration
+  durationField.addEventListener('change', updateEndFromDuration);
+  startField.addEventListener('change', updateEndFromDuration);
+
+  function updateEndFromDuration() {
+    const dur = durationField.value;
+    if (dur === '0') {
+      endWrap.style.display = 'block';
+      endField.required = true;
+      return;
+    }
+    endWrap.style.display = 'none';
+    endField.required = false;
+    if (!startField.value) return;
+
+    const isAllDay = allDayField.checked;
+    if (dur.startsWith('h')) {
+      // Hour-based duration
+      const hours = parseInt(dur.slice(1));
+      const startDate = new Date(startField.value);
+      if (isNaN(startDate)) return;
+      const endDate = new Date(startDate.getTime() + hours * 60 * 60 * 1000);
+      endField.value = toLocalInputValue(endDate.toISOString());
+    } else {
+      // Day-based duration
+      const days = parseInt(dur);
+      if (isAllDay) {
+        const [y, m, d] = startField.value.split('-').map(Number);
+        const endDate = new Date(y, m - 1, d + days - 1);
+        const pad = n => String(n).padStart(2, '0');
+        endField.value = `${endDate.getFullYear()}-${pad(endDate.getMonth()+1)}-${pad(endDate.getDate())}`;
+      } else {
+        const startDate = new Date(startField.value);
+        if (isNaN(startDate)) return;
+        const endDate = new Date(startDate.getTime() + days * 24 * 60 * 60 * 1000 - 1000);
+        endField.value = toLocalInputValue(endDate.toISOString());
+      }
+    }
+  }
+
+  const monthTitle = $('month-title'), monthGrid = $('month-grid'), upcomingList = $('upcoming-list');
+  const heroTiles = $('hero-tiles');
+  const legendEl = $('legend');
+
+  let events = [], months = [], currentMonthIndex = 0;
+
+  init();
+
+  async function init() {
+    events = loadEvents();
+    if (!events.length) {
+      await autoImportICS();
+      events = loadEvents();
+    }
+    applyMarch2026StatusUpdates();
+    refresh();
+  }
+
+  // One-time migration: mark canceled/tentative events for the week Amy was home sick
+  function applyMarch2026StatusUpdates() {
+    if (localStorage.getItem('status_migration_v1')) return;
+    const cancelIds = [
+      '20260301-travel-nyc@smokey',    // Fly to NYC
+      '20260302-cornell@smokey',        // Cornell Conference
+      '20260303-cnbc@smokey',           // CNBC Cures
+      '20260303-palmbeach@smokey',      // Fly to Palm Beach
+    ];
+    const tentativeIds = [
+      '20260305-travel-dc@smokey',      // Fly to DC
+    ];
+    let changed = false;
+    events.forEach(evt => {
+      if (cancelIds.includes(evt.id) && evt.status !== 'canceled') {
+        evt.status = 'canceled';
+        evt.cancelReason = 'Home sick';
+        evt.updatedAt = new Date().toISOString();
+        changed = true;
+      }
+      if (tentativeIds.includes(evt.id) && evt.status !== 'tentative') {
+        evt.status = 'tentative';
+        evt.updatedAt = new Date().toISOString();
+        changed = true;
+      }
+    });
+    // Add "Home Sick in Nashville" event if not present
+    const sickId = 'homesick-20260228@smokey';
+    if (!events.find(e => e.id === sickId)) {
+      events.push({
+        id: sickId,
+        title: 'Home Sick in Nashville',
+        start: '2026-02-28T06:00:00.000Z',
+        end: '2026-03-05T05:59:59.000Z',
+        tz: 'America/Chicago',
+        location: 'Nashville, TN',
+        notes: 'Resting up at home. Missed NYC and Palm Beach trips.',
+        allDay: false,
+        status: 'confirmed',
+        cancelReason: '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+      changed = true;
+    }
+    // Update DC flight title to reflect uncertainty
+    const dcEvt = events.find(e => e.id === '20260305-travel-dc@smokey');
+    if (dcEvt && !dcEvt.title.includes('Hopefully')) {
+      dcEvt.title = 'Hopefully Fly to Washington, DC';
+      dcEvt.updatedAt = new Date().toISOString();
+      changed = true;
+    }
+    if (changed) {
+      persistEvents();
+    }
+    localStorage.setItem('status_migration_v1', '1');
+  }
+
+  // Default events embedded for GitHub Pages (so family sees events without localStorage)
+  const DEFAULT_EVENTS = [{"id":"20260301-travel-nyc@smokey","title":"Fly to NYC (Cornell Conference 3/2)","start":"2026-03-01T06:00:00.000Z","end":"2026-03-01T23:59:59.000Z","tz":"America/Chicago","location":"New York City (JFK/LGA)","notes":"All-day travel block to position for the Cornell conference on 3/2.","allDay":true,"status":"canceled","cancelReason":"Home Sick"},{"id":"20260302-cornell@smokey","title":"Cornell Conference (NYC)","start":"2026-03-02T06:00:00.000Z","end":"2026-03-02T23:59:59.000Z","tz":"America/Chicago","location":"Cornell (NYC)","notes":"Conference day in NYC.","allDay":true,"status":"canceled","cancelReason":"Home Sick"},{"id":"20260303-cnbc@smokey","title":"CNBC Cures Conference (NYC)","start":"2026-03-03T06:00:00.000Z","end":"2026-03-03T23:59:59.000Z","tz":"America/Chicago","location":"New York City","notes":"Full day at the CNBC Cures conference.","allDay":true,"status":"canceled","cancelReason":"Home Sick"},{"id":"20260303-palmbeach@smokey","title":"Fly to Palm Beach for Conference","start":"2026-03-03T06:00:00.000Z","end":"2026-03-03T23:59:59.000Z","tz":"America/Chicago","location":"Palm Beach, FL (PBI)","notes":"Post-conference evening flight from NYC down to Palm Beach.","allDay":true,"status":"canceled","cancelReason":"Home Sick"},{"id":"home-sick-march@smokey","title":"Home sick","start":"2026-03-01T06:00:00.000Z","end":"2026-03-04T23:59:59.000Z","tz":"America/Chicago","location":"Nashville","notes":"Home sick in Nashville","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260305-travel-dc@smokey","title":"Hopefully Fly to Washington, DC","start":"2026-03-05T06:00:00.000Z","end":"2026-03-05T23:59:59.000Z","tz":"America/Chicago","location":"Washington, DC (DCA/IAD)","notes":"Travel day to DC.","allDay":true,"status":"tentative","cancelReason":""},{"id":"20260306-work-dc@smokey","title":"Work Day in DC","start":"2026-03-06T06:00:00.000Z","end":"2026-03-06T23:59:59.000Z","tz":"America/Chicago","location":"Washington, DC","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260307-health-prom@smokey","title":"Health Prom (DC)","start":"2026-03-07T06:00:00.000Z","end":"2026-03-07T23:59:59.000Z","tz":"America/Chicago","location":"Washington, DC","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260308-travel-vegas@smokey","title":"Fly to Las Vegas","start":"2026-03-08T06:00:00.000Z","end":"2026-03-08T23:59:59.000Z","tz":"America/Chicago","location":"Las Vegas, NV (LAS)","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260309-himss@smokey","title":"HIMSS","start":"2026-03-09T06:00:00.000Z","end":"2026-03-11T23:59:59.000Z","tz":"America/Chicago","location":"Las Vegas","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260312-himss-morning@smokey","title":"HIMSS Morning","start":"2026-03-12T06:00:00.000Z","end":"2026-03-12T23:59:59.000Z","tz":"America/Chicago","location":"Las Vegas","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260312-travel-jax@smokey","title":"Fly to Jacksonville for Optum Event","start":"2026-03-12T17:00:00.000Z","end":"2026-03-12T23:59:59.000Z","tz":"America/Chicago","location":"Jacksonville, FL (JAX)","allDay":false,"status":"confirmed","cancelReason":""},{"id":"20260313-optum-talk@smokey","title":"Optum Speaking Event @ Golf Tournament","start":"2026-03-13T06:00:00.000Z","end":"2026-03-13T23:59:59.000Z","tz":"America/Chicago","location":"Jacksonville, FL (TPC Sawgrass area)","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260314-optum-golf@smokey","title":"Optum Golf Day","start":"2026-03-14T06:00:00.000Z","end":"2026-03-14T23:59:59.000Z","tz":"America/Chicago","location":"Jacksonville, FL","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260315-travel-dc-nyc@smokey","title":"Jacksonville → DC → NYC","start":"2026-03-15T06:00:00.000Z","end":"2026-03-15T23:59:59.000Z","tz":"America/Chicago","location":"Jacksonville to Washington, DC to New York City","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260316-dc-block@smokey","title":"DC and then fly or take the train to NYC","start":"2026-03-16T06:00:00.000Z","end":"2026-03-16T23:59:59.000Z","tz":"America/Chicago","location":"Washington, DC","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260317-google-event@smokey","title":"Google Event (NYC)","start":"2026-03-17T06:00:00.000Z","end":"2026-03-17T23:59:59.000Z","tz":"America/Chicago","location":"New York City","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260318-dc-block@smokey","title":"Working from DC","start":"2026-03-18T06:00:00.000Z","end":"2026-03-22T23:59:59.000Z","tz":"America/Chicago","location":"Washington, DC","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260322-london-flight@smokey","title":"Fly to London (Digital Services Europe)","start":"2026-03-22T19:00:00.000Z","end":"2026-03-23T06:00:00.000Z","tz":"America/Chicago","location":"Washington, DC to London","notes":"Evening American Airlines flight (~7pm) to London.","allDay":false,"status":"confirmed","cancelReason":""},{"id":"20260323-dse-london@smokey","title":"Digital Services Europe (London)","start":"2026-03-23T06:00:00.000Z","end":"2026-03-28T23:59:59.000Z","tz":"Europe/London","location":"London, UK","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260329-return-dc@smokey","title":"Fly back to DC","start":"2026-03-29T14:00:00.000Z","end":"2026-03-29T23:59:59.000Z","tz":"Europe/London","location":"London → Washington, DC","notes":"American Airlines flight departing London around 2pm.","allDay":false,"status":"confirmed","cancelReason":""}];
+
+  function loadEvents() {
+    try {
+      const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      if (Array.isArray(stored) && stored.length) return stored.map(e => ({...e}));
+    } catch(e) {}
+    // Fall back to embedded defaults
+    if (DEFAULT_EVENTS.length) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_EVENTS));
+      return DEFAULT_EVENTS.map(e => ({...e}));
+    }
+    return [];
+  }
+
+  function persistEvents() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+    triggerBackup('auto');
+  }
+
+  function triggerBackup(source) {
+    const isManual = source === 'manual' || (typeof source === 'object' && source?.type);
+    if (!isManual) {
+      const last = Number(localStorage.getItem('lastAutoBackupAt') || 0);
+      if (Date.now() - last < 10 * 60 * 1000) return;
+      localStorage.setItem('lastAutoBackupAt', String(Date.now()));
+    }
+    try {
+      const payload = localStorage.getItem(STORAGE_KEY) || '[]';
+      const ts = timestampString();
+      downloadFile(`travel-backup-${ts}.json`, payload, 'application/json');
+    } catch(e) {}
+  }
+
+  function timestampString() {
+    const pad = n => String(n).padStart(2, '0');
+    const d = new Date();
+    return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+  }
+
+  async function autoImportICS() {
+    try {
+      const res = await fetch(`share/march-2026-travel.ics?_=${Date.now()}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+      const parsed = parseICS(text).map(convertIcsEvent).filter(Boolean);
+      if (parsed.length) { events = parsed; persistEvents(); }
+    } catch(e) { console.warn('Auto import skipped:', e.message); }
+  }
+
+  function refresh() {
+    normalizeEvents();
+    buildMonths();
+    renderCalendar();
+    renderStatus();
+    renderLegend();
+    statusText.textContent = `${events.length} trip${events.length===1?'':'s'} tracked`;
+  }
+
+  function normalizeEvents() {
+    events = events.map(evt => {
+      const s = new Date(evt.start), e = new Date(evt.end || evt.start);
+      const ss = isNaN(s) ? new Date() : s;
+      const se = isNaN(e) ? ss : (e < ss ? ss : e);
+      return { ...evt, start: ss.toISOString(), end: se.toISOString(), tz: evt.tz||'America/Chicago',
+        allDay: Boolean(evt.allDay), createdAt: evt.createdAt||new Date().toISOString(), updatedAt: evt.updatedAt||new Date().toISOString() };
+    });
+  }
+
+  function renderStatus() {
+    const now = new Date();
+    const todayStart = startOfDay(now);
+    const sorted = [...events].sort((a,b) => new Date(a.start)-new Date(b.start));
+
+    // Get events happening today or in the future, skip canceled
+    const relevant = sorted.filter(e => startOfDay(new Date(e.end)) >= todayStart && e.status !== 'canceled');
+    const tiles = relevant.slice(0, 3);
+
+    heroTiles.innerHTML = '';
+    if (!tiles.length) {
+      heroTiles.innerHTML = '<div class="hero-tile" style="grid-column:1/-1;text-align:center;"><div class="tile-title">No upcoming trips</div><div class="tile-loc">Add one with the + button below!</div></div>';
+      return;
+    }
+
+    tiles.forEach((evt, i) => {
+      const loc = getLocColor(evt);
+      const evtStart = startOfDay(new Date(evt.start));
+      const evtEnd = startOfDay(new Date(evt.end));
+      const isHappening = evtStart <= todayStart && evtEnd >= todayStart;
+      const diffDays = Math.round((evtStart - todayStart) / (1000*60*60*24));
+
+      let whenLabel;
+      if (isHappening) whenLabel = 'Happening Now';
+      else if (diffDays === 0) whenLabel = 'Today';
+      else if (diffDays === 1) whenLabel = 'Tomorrow';
+      else if (diffDays < 7) whenLabel = `In ${diffDays} days`;
+      else whenLabel = new Date(evt.start).toLocaleDateString(undefined, {month:'short', day:'numeric'});
+
+      const tile = document.createElement('div');
+      tile.className = 'hero-tile' + (isHappening ? ' active' : '');
+      tile.style.borderLeftColor = loc.text;
+      if (evt.status === 'tentative') {
+        tile.style.borderLeftStyle = 'dashed';
+        tile.style.opacity = '0.8';
+      }
+      const tentativeTag = evt.status === 'tentative' ? ' <span style="color:#D97706;font-size:12px;">(maybe)</span>' : '';
+      tile.innerHTML = `
+        <div class="tile-when">${whenLabel}</div>
+        <div class="tile-badge" style="background:${loc.bg};color:${loc.text};">${loc.label}</div>
+        <div class="tile-title">${evt.title.replace(/^Travel:\s*/i,'')}${tentativeTag}</div>
+        ${evt.location ? `<div class="tile-loc">${evt.location}</div>` : ''}
+      `;
+      heroTiles.appendChild(tile);
+    });
+  }
+
+  function renderLegend() {
+    const usedLocs = new Set();
+    events.forEach(evt => {
+      const loc = getLocColor(evt);
+      usedLocs.add(loc);
+    });
+    legendEl.innerHTML = '';
+    usedLocs.forEach(loc => {
+      const chip = document.createElement('div');
+      chip.className = 'legend-chip';
+      chip.style.cssText = `background:${loc.bg};border-color:${loc.border};color:${loc.text};`;
+      chip.innerHTML = `<span class="legend-dot" style="background:${loc.text}"></span>${loc.label}`;
+      legendEl.appendChild(chip);
+    });
+    // Compact action buttons inline with legend
+    const emailBtn = document.createElement('button');
+    emailBtn.className = 'send-all-btn';
+    emailBtn.textContent = '\u2709 Email All Events';
+    emailBtn.addEventListener('click', sendAllEvents);
+    legendEl.appendChild(emailBtn);
+
+    const gcalBtn = document.createElement('button');
+    gcalBtn.className = 'send-all-btn';
+    gcalBtn.style.background = '#2563EB';
+    gcalBtn.textContent = '\uD83D\uDCC5 Add All to Google Cal';
+    gcalBtn.addEventListener('click', openAllGCal);
+    legendEl.appendChild(gcalBtn);
+  }
+
+  function buildMonths() {
+    const map = new Map();
+    events.forEach(evt => {
+      const d = new Date(evt.start);
+      if (isNaN(d)) return;
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      if (!map.has(key)) map.set(key, { year: d.getFullYear(), month: d.getMonth(), events: [] });
+      map.get(key).events.push(evt);
+    });
+    if (!map.size) {
+      const t = new Date();
+      map.set(`${t.getFullYear()}-${t.getMonth()}`, { year: t.getFullYear(), month: t.getMonth(), events: [] });
+    }
+    months = Array.from(map.values()).sort((a,b) => (a.year-b.year)||(a.month-b.month));
+    const t = new Date();
+    const idx = months.findIndex(m => m.year===t.getFullYear() && m.month===t.getMonth());
+    currentMonthIndex = idx >= 0 ? idx : 0;
+  }
+
+  function renderCalendar() {
+    const m = months[currentMonthIndex] || months[0];
+    const disp = new Date(m.year, m.month, 1);
+    monthTitle.textContent = disp.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    monthGrid.innerHTML = '';
+
+    ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d => {
+      const el = document.createElement('div');
+      el.className = 'weekday-label';
+      el.textContent = d;
+      monthGrid.appendChild(el);
+    });
+
+    const firstDay = new Date(m.year, m.month, 1).getDay();
+    const daysInMonth = new Date(m.year, m.month+1, 0).getDate();
+    const today = new Date();
+
+    for (let i = 0; i < firstDay; i++) {
+      const blank = document.createElement('div');
+      blank.className = 'day-cell empty';
+      monthGrid.appendChild(blank);
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const cell = document.createElement('div');
+      const isToday = today.getFullYear()===m.year && today.getMonth()===m.month && today.getDate()===day;
+      cell.className = 'day-cell' + (isToday ? ' today' : '');
+
+      const num = document.createElement('div');
+      num.className = 'day-num';
+      num.textContent = day;
+      cell.appendChild(num);
+
+      const cellDate = new Date(m.year, m.month, day);
+      m.events.forEach(evt => {
+        if (occursOnDay(evt, cellDate)) {
+          const loc = getLocColor(evt);
+          const chip = document.createElement('div');
+          const statusCls = evt.status === 'canceled' ? ' canceled' : evt.status === 'tentative' ? ' tentative' : '';
+          chip.className = 'event-chip' + statusCls;
+          chip.style.cssText = `background:${loc.bg};border-color:${loc.border};color:${loc.text};`;
+          // Shorten title for chip
+          const shortTitle = evt.title.replace(/^Travel:\s*/i, '').replace(/\(.*?\)/g, '').trim();
+          const cancelLabel = evt.status === 'canceled' ? `<span class="chip-cancel-label">${evt.cancelReason || 'Canceled'}</span>` : '';
+          chip.innerHTML = `${cancelLabel}<span class="chip-title">${shortTitle.length > 30 ? shortTitle.slice(0,28)+'...' : shortTitle}</span>`;
+          if (evt.location) {
+            const locSpan = document.createElement('span');
+            locSpan.className = 'chip-loc';
+            locSpan.textContent = evt.location.length > 25 ? evt.location.slice(0,23)+'...' : evt.location;
+            chip.appendChild(locSpan);
+          }
+          chip.addEventListener('click', () => openModal(evt));
+          cell.appendChild(chip);
+        }
+      });
+      monthGrid.appendChild(cell);
+    }
+  }
+
+  function occursOnDay(evt, date) {
+    const s = startOfDay(new Date(evt.start)), e = startOfDay(new Date(evt.end)), c = startOfDay(date);
+    return c >= s && c <= e;
+  }
+  function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+
+  function renderUpcoming() {
+    const now = new Date();
+    const sorted = [...events].filter(e => new Date(e.end) >= now || e.status === 'canceled')
+      .sort((a,b) => new Date(a.start) - new Date(b.start));
+    const featured = sorted.slice(0, 12);
+    upcomingList.innerHTML = '';
+    if (!featured.length) {
+      upcomingList.innerHTML = '<div class="empty-state">No upcoming trips. Tap + to add one!</div>';
+      return;
+    }
+    featured.forEach(evt => {
+      const loc = getLocColor(evt);
+      const card = document.createElement('div');
+      const statusCls = evt.status === 'canceled' ? ' canceled' : evt.status === 'tentative' ? ' tentative' : '';
+      card.className = 'trip-card' + statusCls;
+
+      let statusPillHTML = '';
+      if (evt.status === 'canceled') {
+        statusPillHTML = `<div class="status-pill canceled">${evt.cancelReason || 'Canceled'}</div>`;
+      } else if (evt.status === 'tentative') {
+        statusPillHTML = `<div class="status-pill tentative">Tentative</div>`;
+      }
+
+      card.innerHTML = `
+        <div class="card-badge" style="background:${loc.bg};border-color:${loc.border};color:${loc.text};">
+          <span class="legend-dot" style="background:${loc.text}"></span>${loc.label}
+        </div>
+        ${statusPillHTML}
+        <div class="card-title">${evt.title}</div>
+        <div class="card-dates">${formatDateRange(evt)}</div>
+        ${evt.location ? `<div class="card-notes">${evt.location}</div>` : ''}
+        ${evt.notes ? `<div class="card-notes" style="opacity:0.7">${evt.notes}</div>` : ''}
+      `;
+      const actions = document.createElement('div');
+      actions.className = 'card-actions';
+
+      const gcalBtn = document.createElement('a');
+      gcalBtn.className = 'card-btn send';
+      gcalBtn.textContent = 'Add to Calendar';
+      gcalBtn.href = makeGCalURL(evt);
+      gcalBtn.target = '_blank';
+      gcalBtn.rel = 'noopener';
+
+      const editBtn = document.createElement('button');
+      editBtn.className = 'card-btn';
+      editBtn.textContent = 'Edit';
+      editBtn.addEventListener('click', () => openModal(evt));
+
+      // Quick status toggle buttons
+      if (evt.status !== 'canceled') {
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'card-btn danger';
+        cancelBtn.textContent = 'Cancel Trip';
+        cancelBtn.addEventListener('click', () => {
+          const reason = prompt('Reason for canceling (shown to family):', 'Plans changed');
+          if (reason === null) return;
+          const idx = events.findIndex(e => e.id === evt.id);
+          if (idx >= 0) { events[idx].status = 'canceled'; events[idx].cancelReason = reason; events[idx].updatedAt = new Date().toISOString(); }
+          persistEvents(); refresh();
+        });
+        actions.appendChild(cancelBtn);
+      }
+      if (evt.status === 'canceled') {
+        const restoreBtn = document.createElement('button');
+        restoreBtn.className = 'card-btn send';
+        restoreBtn.textContent = 'Restore';
+        restoreBtn.addEventListener('click', () => {
+          const idx = events.findIndex(e => e.id === evt.id);
+          if (idx >= 0) { events[idx].status = 'confirmed'; events[idx].cancelReason = ''; events[idx].updatedAt = new Date().toISOString(); }
+          persistEvents(); refresh();
+        });
+        actions.appendChild(restoreBtn);
+      }
+
+      const icsBtn = document.createElement('button');
+      icsBtn.className = 'card-btn';
+      icsBtn.textContent = 'Export .ics';
+      icsBtn.addEventListener('click', () => downloadEventICS(evt));
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'card-btn danger';
+      delBtn.innerHTML = '\uD83D\uDDD1 Delete';
+      delBtn.addEventListener('click', () => deleteEvent(evt.id));
+
+      actions.append(gcalBtn, editBtn, icsBtn, delBtn);
+      card.appendChild(actions);
+      upcomingList.appendChild(card);
+    });
+  }
+
+  function formatDateRange(evt) {
+    const s = new Date(evt.start), e = new Date(evt.end);
+    const opts = { weekday: 'short', month: 'short', day: 'numeric' };
+    if (s.toDateString() === e.toDateString()) {
+      return `${s.toLocaleDateString(undefined, opts)}`;
+    }
+    return `${s.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${e.toLocaleDateString(undefined, opts)}`;
+  }
+
+  // Google Calendar URL builder
+  function makeGCalURL(evt) {
+    const fmt = d => {
+      const dd = new Date(d);
+      const pad = n => String(n).padStart(2,'0');
+      return `${dd.getUTCFullYear()}${pad(dd.getUTCMonth()+1)}${pad(dd.getUTCDate())}T${pad(dd.getUTCHours())}${pad(dd.getUTCMinutes())}${pad(dd.getUTCSeconds())}Z`;
+    };
+    const params = new URLSearchParams({
+      action: 'TEMPLATE',
+      text: evt.title,
+      dates: `${fmt(evt.start)}/${fmt(evt.end)}`,
+      location: evt.location || '',
+      details: evt.notes || '',
+      add: FAMILY_EMAIL
+    });
+    return `https://calendar.google.com/calendar/r/eventedit?${params}`;
+  }
+
+  // Send all events — opens mailto with summary
+  function sendAllEvents() {
+    const now = new Date();
+    const upcoming = [...events].filter(e => new Date(e.end) >= now)
+      .sort((a,b) => new Date(a.start) - new Date(b.start));
+    if (!upcoming.length) { alert('No upcoming events to send!'); return; }
+
+    let body = "Here's where Amy is heading:\\n\\n";
+    upcoming.forEach(evt => {
+      const s = new Date(evt.start), e = new Date(evt.end);
+      const dateStr = s.toLocaleDateString(undefined, {month:'short',day:'numeric'}) +
+        (s.toDateString()!==e.toDateString() ? ' - '+e.toLocaleDateString(undefined,{month:'short',day:'numeric'}) : '');
+      body += `${dateStr}: ${evt.title}`;
+      if (evt.location) body += ` (${evt.location})`;
+      body += '\\n';
+      body += `  Add to calendar: ${makeGCalURL(evt)}\\n\\n`;
+    });
+
+    const subject = encodeURIComponent("Amy's Travel Schedule - Updated " + new Date().toLocaleDateString());
+    const encodedBody = encodeURIComponent(body.replace(/\\n/g, '\n'));
+    window.open(`mailto:${FAMILY_EMAIL}?subject=${subject}&body=${encodedBody}`, '_blank');
+  }
+
+  // Open all in Google Calendar
+  function openAllGCal() {
+    const now = new Date();
+    const upcoming = [...events].filter(e => new Date(e.end) >= now)
+      .sort((a,b) => new Date(a.start) - new Date(b.start));
+    if (!upcoming.length) { alert('No upcoming events!'); return; }
+    if (!confirm(`This will open ${upcoming.length} Google Calendar tabs. Continue?`)) return;
+    upcoming.forEach((evt, i) => {
+      setTimeout(() => window.open(makeGCalURL(evt), '_blank'), i * 300);
+    });
+  }
+
+  // Modal
+  function openModal(event) {
+    modal.classList.add('active');
+    // Reset duration to custom
+    durationField.value = '0';
+    endWrap.style.display = 'block';
+    endField.required = true;
+    // Reset hour option visibility
+    Array.from(durationField.options).forEach(opt => { opt.hidden = false; });
+
+    if (event) {
+      modalDeleteBtn.style.display = '';
+      modalDeleteBtn.onclick = () => { closeModal(); deleteEvent(event.id); };
+      modalTitle.textContent = 'Edit Trip';
+      idField.value = event.id;
+      titleField.value = event.title;
+      allDayField.checked = Boolean(event.allDay);
+      if (event.allDay) {
+        startField.type = 'date';
+        endField.type = 'date';
+        startField.value = new Date(event.start).toISOString().slice(0, 10);
+        endField.value = new Date(event.end).toISOString().slice(0, 10);
+        Array.from(durationField.options).forEach(opt => { opt.hidden = opt.value.startsWith('h'); });
+      } else {
+        startField.type = 'datetime-local';
+        endField.type = 'datetime-local';
+        startField.value = toLocalInputValue(event.start);
+        endField.value = toLocalInputValue(event.end);
+      }
+      tzField.value = event.tz || 'America/Chicago';
+      locationField.value = event.location || '';
+      notesField.value = event.notes || '';
+      statusField.value = event.status || 'confirmed';
+      cancelReasonField.value = event.cancelReason || '';
+      cancelReasonWrap.style.display = statusField.value === 'canceled' ? 'block' : 'none';
+    } else {
+      modalDeleteBtn.style.display = 'none';
+      modalTitle.textContent = 'Add Trip';
+      form.reset(); idField.value = '';
+      allDayField.checked = true;
+      startField.type = 'date';
+      endField.type = 'date';
+      Array.from(durationField.options).forEach(opt => { opt.hidden = opt.value.startsWith('h'); });
+      durationField.value = '1';
+      tzField.value = 'America/Chicago';
+      statusField.value = 'confirmed';
+      cancelReasonField.value = '';
+      cancelReasonWrap.style.display = 'none';
+      const pad = n => String(n).padStart(2, '0');
+      const now = new Date();
+      startField.value = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+      updateEndFromDuration();
+    }
+  }
+  function closeModal() { modal.classList.remove('active'); }
+
+  function toLocalInputValue(v) {
+    if (!v) return '';
+    const d = new Date(v);
+    if (isNaN(d)) return '';
+    return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  }
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const isEdit = !!idField.value && events.some(e => e.id === idField.value);
+    const isAllDay = allDayField.checked;
+
+    let startISO, endISO;
+    if (isAllDay) {
+      // Date-only inputs: create start at midnight UTC, end at 23:59:59 UTC
+      const [sy, sm, sd] = startField.value.split('-').map(Number);
+      startISO = new Date(Date.UTC(sy, sm-1, sd, 6, 0, 0)).toISOString();
+      if (endField.value) {
+        const [ey, em, ed] = endField.value.split('-').map(Number);
+        endISO = new Date(Date.UTC(ey, em-1, ed, 23, 59, 59)).toISOString();
+      } else {
+        endISO = new Date(Date.UTC(sy, sm-1, sd, 23, 59, 59)).toISOString();
+      }
+    } else {
+      startISO = new Date(startField.value).toISOString();
+      endISO = new Date(endField.value).toISOString();
+    }
+
+    const payload = {
+      id: idField.value || crypto.randomUUID?.() || `evt-${Date.now()}`,
+      title: titleField.value.trim(),
+      start: startISO,
+      end: endISO,
+      tz: tzField.value.trim() || 'America/Chicago',
+      location: locationField.value.trim(),
+      notes: notesField.value.trim(),
+      allDay: isAllDay,
+      status: statusField.value || 'confirmed',
+      cancelReason: statusField.value === 'canceled' ? cancelReasonField.value.trim() : ''
+    };
+    if (!payload.title || !payload.start || !payload.end) { alert('Title, start, and end are required.'); return; }
+    const now = new Date().toISOString();
+    const idx = events.findIndex(e => e.id === payload.id);
+    if (idx >= 0) { events[idx] = { ...events[idx], ...payload, updatedAt: now }; }
+    else { events.push({ ...payload, allDay: false, createdAt: now, updatedAt: now }); }
+    persistEvents();
+    closeModal();
+    refresh();
+
+    // Show invite toast
+    const action = isEdit ? 'Updated' : 'Saved';
+    const inviteMsg = isEdit
+      ? `"${payload.title}" updated! Send an updated calendar invite to ${FAMILY_EMAIL}?`
+      : `"${payload.title}" saved! Send a calendar invite to ${FAMILY_EMAIL} so it shows on the family calendar?`;
+    $('toast-msg').textContent = inviteMsg;
+    $('toast-send').href = makeGCalURL(payload);
+    $('invite-toast').classList.add('active');
+  });
+
+  $('toast-skip').addEventListener('click', () => $('invite-toast').classList.remove('active'));
+  $('toast-send').addEventListener('click', () => {
+    setTimeout(() => $('invite-toast').classList.remove('active'), 500);
+  });
+  $('invite-toast').addEventListener('click', e => {
+    if (e.target === $('invite-toast')) $('invite-toast').classList.remove('active');
+  });
+
+  function deleteEvent(id) {
+    const evt = events.find(e => e.id === id);
+    if (!evt || !confirm(`Delete "${evt.title}"?`)) return;
+    events = events.filter(e => e.id !== id);
+    persistEvents();
+    refresh();
+  }
+
+  // ICS export
+  function downloadEventICS(evt) {
+    downloadFile(`${slugify(evt.title)}.ics`, wrapCalendar(buildICSEvent(evt)), 'text/calendar');
+  }
+  function exportAllICS() {
+    if (!events.length) { alert('No events.'); return; }
+    downloadFile('amy-travel.ics', wrapCalendar(events.map(buildICSEvent).flat()), 'text/calendar');
+  }
+  function wrapCalendar(lines) {
+    return ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//WhereIsAmy//EN','CALSCALE:GREGORIAN',...lines,'END:VCALENDAR'].join('\r\n');
+  }
+  function buildICSEvent(evt) {
+    const tz = evt.tz || 'America/Chicago';
+    const lines = ['BEGIN:VEVENT', `UID:${evt.id}`, `DTSTAMP:${fmtICS(new Date())}`];
+    lines.push(`DTSTART;TZID=${tz}:${fmtICS(new Date(evt.start), tz)}`);
+    lines.push(`DTEND;TZID=${tz}:${fmtICS(new Date(evt.end), tz)}`);
+    lines.push(`SUMMARY:${escICS(evt.title)}`, `LOCATION:${escICS(evt.location||'')}`, `DESCRIPTION:${escICS(evt.notes||'')}`, 'END:VEVENT');
+    return lines;
+  }
+  function fmtICS(d, tz) {
+    const pad = n => String(n).padStart(2,'0');
+    if (tz) {
+      try {
+        const p = new Intl.DateTimeFormat('en-US',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})
+          .formatToParts(d).reduce((a,p)=>({...a,[p.type]:p.value}),{});
+        return `${p.year}${p.month}${p.day}T${p.hour}${p.minute}${p.second}`;
+      } catch(e){}
+    }
+    return `${d.getUTCFullYear()}${pad(d.getUTCMonth()+1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
+  }
+  function escICS(t='') { return t.replace(/\\/g,'\\\\').replace(/\n/g,'\\n').replace(/,/g,'\\,').replace(/;/g,'\\;'); }
+  function slugify(t='event') { return t.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'')||'event'; }
+  function downloadFile(name, content, mime) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([content],{type:mime}));
+    a.download = name; a.click(); URL.revokeObjectURL(a.href);
+  }
+
+  // ICS parser
+  function parseICS(text='') {
+    const norm = text.replace(/\r\n/g,'\n').replace(/\n[ \t]/g,'');
+    return norm.split('BEGIN:VEVENT').slice(1).map(sec => {
+      const body = sec.split('END:VEVENT')[0]||'';
+      const props = {};
+      body.split('\n').map(l=>l.trim()).filter(Boolean).forEach(line => {
+        const ci = line.indexOf(':');
+        if (ci===-1) return;
+        const [name,...pp] = line.slice(0,ci).split(';');
+        const params = {};
+        pp.forEach(p => { const [k,v]=p.split('='); if(k&&v) params[k.toUpperCase()]=v; });
+        props[name.toUpperCase()] = { value: line.slice(ci+1).trim(), params };
+      });
+      return props;
+    });
+  }
+  function convertIcsEvent(p) {
+    if (!p?.DTSTART) return null;
+    const tz = p.DTSTART.params?.TZID || p.DTEND?.params?.TZID || 'America/Chicago';
+    const s = parseIcsDate(p.DTSTART.value, tz);
+    const e = parseIcsDate(p.DTEND?.value || p.DTSTART.value, tz);
+    if (!s||!e) return null;
+    const sd = new Date(s); let ed = new Date(e);
+    const isDO = v => (v||'').toUpperCase()==='DATE';
+    if (isDO(p.DTSTART.params?.VALUE) && !p.DTEND) ed = new Date(sd.getTime()+86399000);
+    if (isDO(p.DTEND?.params?.VALUE)) ed = new Date(ed.getTime()-1000);
+    const now = new Date().toISOString();
+    return { id: p.UID?.value?.trim()||`ics-${Date.now()}`, title: unesc(p.SUMMARY?.value||'Untitled'),
+      start: sd.toISOString(), end: (ed>=sd?ed:sd).toISOString(), tz, location: unesc(p.LOCATION?.value||''),
+      notes: unesc(p.DESCRIPTION?.value||''), allDay: isDO(p.DTSTART.params?.VALUE), createdAt: now, updatedAt: now };
+  }
+  function parseIcsDate(raw='', tz='America/Chicago') {
+    const m = raw.match(/^(\d{4})(\d{2})(\d{2})(?:T?(\d{2})(\d{2})(\d{2}))?(Z)?$/);
+    if (!m) return null;
+    const [,Y,M,D,h='00',mi='00',s='00',isZ] = m;
+    if (isZ==='Z') return new Date(Date.UTC(+Y,+M-1,+D,+h,+mi,+s)).toISOString();
+    const d = new Date(Date.UTC(+Y,+M-1,+D,+h,+mi,+s));
+    try {
+      const p = new Intl.DateTimeFormat('en-US',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})
+        .formatToParts(d).reduce((a,p)=>({...a,[p.type]:p.value}),{});
+      const asUTC = Date.UTC(+p.year,+p.month-1,+p.day,+p.hour,+p.minute,+p.second);
+      return new Date(d.getTime()-(asUTC-d.getTime())).toISOString();
+    } catch(e) { return new Date(d.getTime()+d.getTimezoneOffset()*60000).toISOString(); }
+  }
+  function unesc(t='') { return t.replace(/\\n/g,'\n').replace(/\\,/g,',').replace(/\\;/g,';').replace(/\\\\/g,'\\').trim(); }
+
+  // ========================
+  // MESSAGE BOARD
+  // ========================
+  const MSG_KEY = 'family_messages_v1';
+
+  function loadMessages() {
+    try { const m = JSON.parse(localStorage.getItem(MSG_KEY)); return Array.isArray(m) ? m : []; }
+    catch(e) { return []; }
+  }
+  function saveMessages(msgs) { localStorage.setItem(MSG_KEY, JSON.stringify(msgs)); }
+
+  function renderMessages() {
+    const msgs = loadMessages();
+    const list = $('msg-list');
+    if (!msgs.length) {
+      list.innerHTML = '<div class="msg-empty">No messages yet. Be the first to say hi!</div>';
+      return;
+    }
+    list.innerHTML = '';
+    msgs.slice().reverse().forEach(msg => {
+      const initials = (msg.name || '?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+      const colors = ['#FF8200','#EC4899','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EF4444','#14B8A6'];
+      const color = colors[Math.abs([...msg.name].reduce((a,c)=>a+c.charCodeAt(0),0)) % colors.length];
+      const timeStr = new Date(msg.ts).toLocaleDateString(undefined, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+      const item = document.createElement('div');
+      item.className = 'msg-item';
+      item.innerHTML = `
+        <div class="msg-avatar" style="background:${color}">${initials}</div>
+        <div class="msg-body">
+          <span class="msg-name">${escHTML(msg.name)}</span><span class="msg-time">${timeStr}</span>
+          <div class="msg-text">${escHTML(msg.text)}</div>
+        </div>
+        <button class="msg-delete" title="Delete">&times;</button>
+      `;
+      item.querySelector('.msg-delete').addEventListener('click', () => {
+        if (!confirm('Delete this message?')) return;
+        const all = loadMessages().filter(m => m.id !== msg.id);
+        saveMessages(all);
+        renderMessages();
+      });
+      list.appendChild(item);
+    });
+  }
+
+  function escHTML(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+  $('msg-send').addEventListener('click', () => {
+    const name = $('msg-name').value.trim();
+    const text = $('msg-text').value.trim();
+    if (!name || !text) { alert('Please enter your name and a message.'); return; }
+    const msgs = loadMessages();
+    msgs.push({ id: crypto.randomUUID?.() || `msg-${Date.now()}`, name, text, ts: new Date().toISOString() });
+    saveMessages(msgs);
+    $('msg-text').value = '';
+    renderMessages();
+  });
+
+  $('msg-text').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('msg-send').click(); }
+  });
+
+  renderMessages();
+
+  // ========================
+  // PHOTO GALLERY
+  // ========================
+  const PHOTO_KEY = 'family_photos_v1';
+
+  function loadPhotos() {
+    try { const p = JSON.parse(localStorage.getItem(PHOTO_KEY)); return Array.isArray(p) ? p : []; }
+    catch(e) { return []; }
+  }
+  function savePhotos(photos) {
+    try { localStorage.setItem(PHOTO_KEY, JSON.stringify(photos)); }
+    catch(e) { alert('Storage full! Try removing some photos.'); }
+  }
+
+  function renderGallery() {
+    const photos = loadPhotos();
+    const grid = $('gallery-grid');
+    if (!photos.length) {
+      grid.innerHTML = '<div class="gallery-empty">No photos yet. Upload some trip memories!</div>';
+      return;
+    }
+    grid.innerHTML = '';
+    photos.forEach(photo => {
+      const item = document.createElement('div');
+      item.className = 'gallery-item';
+      item.innerHTML = `
+        <img src="${photo.data}" alt="${escHTML(photo.caption||'')}" loading="lazy" />
+        ${photo.caption ? `<div class="photo-caption">${escHTML(photo.caption)}</div>` : ''}
+        <button class="photo-delete" title="Remove">&times;</button>
+      `;
+      item.querySelector('img').addEventListener('click', () => {
+        $('lightbox-img').src = photo.data;
+        $('lightbox-caption').textContent = photo.caption || '';
+        $('lightbox').classList.add('active');
+      });
+      item.querySelector('.photo-delete').addEventListener('click', e => {
+        e.stopPropagation();
+        if (!confirm('Remove this photo?')) return;
+        const all = loadPhotos().filter(p => p.id !== photo.id);
+        savePhotos(all);
+        renderGallery();
+      });
+      grid.appendChild(item);
+    });
+  }
+
+  function addPhotos(files) {
+    const photos = loadPhotos();
+    let processed = 0;
+    Array.from(files).forEach(file => {
+      if (!file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        // Resize large images to save localStorage space
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 1200;
+          let w = img.width, h = img.height;
+          if (w > maxDim || h > maxDim) {
+            const ratio = Math.min(maxDim/w, maxDim/h);
+            w = Math.round(w * ratio);
+            h = Math.round(h * ratio);
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          const data = canvas.toDataURL('image/jpeg', 0.7);
+          const caption = prompt(`Caption for "${file.name}"? (optional)`) || '';
+          photos.push({ id: crypto.randomUUID?.() || `photo-${Date.now()}-${Math.random()}`, data, caption, ts: new Date().toISOString() });
+          processed++;
+          if (processed === files.length) {
+            savePhotos(photos);
+            renderGallery();
+          }
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  const photoDrop = $('photo-drop');
+  const photoInput = $('photo-input');
+  photoDrop.addEventListener('click', () => photoInput.click());
+  photoInput.addEventListener('change', e => { if (e.target.files.length) addPhotos(e.target.files); photoInput.value=''; });
+  photoDrop.addEventListener('dragover', e => { e.preventDefault(); photoDrop.classList.add('dragover'); });
+  photoDrop.addEventListener('dragleave', () => photoDrop.classList.remove('dragover'));
+  photoDrop.addEventListener('drop', e => { e.preventDefault(); photoDrop.classList.remove('dragover'); if(e.dataTransfer.files.length) addPhotos(e.dataTransfer.files); });
+
+  // Lightbox close
+  $('lightbox').addEventListener('click', () => $('lightbox').classList.remove('active'));
+
+  renderGallery();
+
+  // Event listeners
+  $('add-trip-btn').addEventListener('click', () => openModal(null));
+  $('cancel-modal').addEventListener('click', closeModal);
+  modal.addEventListener('click', e => { if(e.target===modal) closeModal(); });
+
+  // Side panel
+  const sidePanel = $('side-panel');
+  const panelOverlay = $('panel-overlay');
+  const panelTitle = $('panel-title');
+  let activePanelTab = null;
+
+  function openPanel(section) {
+    document.querySelectorAll('.panel-section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.side-tab').forEach(t => t.classList.remove('active'));
+    $(('panel-' + section)).classList.add('active');
+    const tab = document.querySelector(`.side-tab[data-panel="${section}"]`);
+    if (tab) tab.classList.add('active');
+    panelTitle.textContent = section === 'messages' ? 'Family Messages' : 'Trip Photos';
+    sidePanel.classList.add('active');
+    panelOverlay.classList.add('active');
+    activePanelTab = section;
+  }
+  function closePanel() {
+    sidePanel.classList.remove('active');
+    panelOverlay.classList.remove('active');
+    document.querySelectorAll('.side-tab').forEach(t => t.classList.remove('active'));
+    activePanelTab = null;
+  }
+  document.querySelectorAll('.side-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const section = tab.dataset.panel;
+      if (activePanelTab === section) { closePanel(); }
+      else { openPanel(section); }
+    });
+  });
+  $('panel-close').addEventListener('click', closePanel);
+  panelOverlay.addEventListener('click', closePanel);
+
+  $('prev-month').addEventListener('click', () => { currentMonthIndex = Math.max(0, currentMonthIndex-1); renderCalendar(); });
+  $('next-month').addEventListener('click', () => { currentMonthIndex = Math.min(months.length-1, currentMonthIndex+1); renderCalendar(); });
+  $('backup-btn').addEventListener('click', triggerBackup);
+  $('export-ics-btn').addEventListener('click', exportAllICS);
+  $('export-json-btn').addEventListener('click', () => downloadFile('events.json', JSON.stringify(events,null,2), 'application/json'));
+  $('import-json-btn').addEventListener('click', () => $('import-json-input').click());
+  $('import-json-input').addEventListener('change', e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const parsed = JSON.parse(ev.target?.result||'[]');
+        if (!Array.isArray(parsed)) throw new Error('JSON must be an array');
+        const map = new Map(events.map(e=>[e.id,e]));
+        parsed.forEach(e => { const id=e.id||crypto.randomUUID(); map.set(id,{...e,id,updatedAt:new Date().toISOString()}); });
+        events = Array.from(map.values());
+        persistEvents(); refresh();
+        alert('Import complete');
+      } catch(err) { alert(`Import failed: ${err.message}`); }
+      finally { $('import-json-input').value=''; }
+    };
+    reader.readAsText(file);
+  });
+  $('import-ics-btn').addEventListener('click', async () => {
+    try {
+      const res = await fetch(`share/march-2026-travel.ics?_=${Date.now()}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const parsed = parseICS(await res.text()).map(convertIcsEvent).filter(Boolean);
+      if (!parsed.length) { alert('No events in ICS.'); return; }
+      const map = new Map(events.map(e=>[e.id,e]));
+      parsed.forEach(e => map.set(e.id, e));
+      events = Array.from(map.values());
+      persistEvents(); refresh();
+      alert(`Imported ${parsed.length} events`);
+    } catch(err) { alert(`ICS import failed: ${err.message}`); }
+  });
+});
+</script>
+</body>
+</html>
