@@ -1164,7 +1164,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  const monthTitle = $('month-title'), monthGrid = $('month-grid'), upcomingList = $('upcoming-list');
+  const monthTitle = $('month-title'), monthGrid = $('month-grid');
   const heroTiles = $('hero-tiles');
   const legendEl = $('legend');
 
@@ -1469,96 +1469,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return c >= s && c <= e;
   }
   function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
-
-  function renderUpcoming() {
-    const now = new Date();
-    const sorted = [...events].filter(e => new Date(e.end) >= now || e.status === 'canceled')
-      .sort((a,b) => new Date(a.start) - new Date(b.start));
-    const featured = sorted.slice(0, 12);
-    upcomingList.innerHTML = '';
-    if (!featured.length) {
-      upcomingList.innerHTML = '<div class="empty-state">No upcoming trips. Tap + to add one!</div>';
-      return;
-    }
-    featured.forEach(evt => {
-      const loc = getLocColor(evt);
-      const card = document.createElement('div');
-      const statusCls = evt.status === 'canceled' ? ' canceled' : evt.status === 'tentative' ? ' tentative' : '';
-      card.className = 'trip-card' + statusCls;
-
-      let statusPillHTML = '';
-      if (evt.status === 'canceled') {
-        statusPillHTML = `<div class="status-pill canceled">${evt.cancelReason || 'Canceled'}</div>`;
-      } else if (evt.status === 'tentative') {
-        statusPillHTML = `<div class="status-pill tentative">Tentative</div>`;
-      }
-
-      card.innerHTML = `
-        <div class="card-badge" style="background:${loc.bg};border-color:${loc.border};color:${loc.text};">
-          <span class="legend-dot" style="background:${loc.text}"></span>${loc.label}
-        </div>
-        ${statusPillHTML}
-        <div class="card-title">${evt.title}</div>
-        <div class="card-dates">${formatDateRange(evt)}</div>
-        ${evt.location ? `<div class="card-notes">${evt.location}</div>` : ''}
-        ${evt.notes ? `<div class="card-notes" style="opacity:0.7">${evt.notes}</div>` : ''}
-      `;
-      const actions = document.createElement('div');
-      actions.className = 'card-actions';
-
-      const gcalBtn = document.createElement('a');
-      gcalBtn.className = 'card-btn send';
-      gcalBtn.textContent = 'Add to Calendar';
-      gcalBtn.href = makeGCalURL(evt);
-      gcalBtn.target = '_blank';
-      gcalBtn.rel = 'noopener';
-
-      const editBtn = document.createElement('button');
-      editBtn.className = 'card-btn';
-      editBtn.textContent = 'Edit';
-      editBtn.addEventListener('click', () => openModal(evt));
-
-      // Quick status toggle buttons
-      if (evt.status !== 'canceled') {
-        const cancelBtn = document.createElement('button');
-        cancelBtn.className = 'card-btn danger';
-        cancelBtn.textContent = 'Cancel Trip';
-        cancelBtn.addEventListener('click', () => {
-          const reason = prompt('Reason for canceling (shown to family):', 'Plans changed');
-          if (reason === null) return;
-          const idx = events.findIndex(e => e.id === evt.id);
-          if (idx >= 0) { events[idx].status = 'canceled'; events[idx].cancelReason = reason; events[idx].updatedAt = new Date().toISOString(); }
-          persistEvents(); refresh();
-        });
-        actions.appendChild(cancelBtn);
-      }
-      if (evt.status === 'canceled') {
-        const restoreBtn = document.createElement('button');
-        restoreBtn.className = 'card-btn send';
-        restoreBtn.textContent = 'Restore';
-        restoreBtn.addEventListener('click', () => {
-          const idx = events.findIndex(e => e.id === evt.id);
-          if (idx >= 0) { events[idx].status = 'confirmed'; events[idx].cancelReason = ''; events[idx].updatedAt = new Date().toISOString(); }
-          persistEvents(); refresh();
-        });
-        actions.appendChild(restoreBtn);
-      }
-
-      const icsBtn = document.createElement('button');
-      icsBtn.className = 'card-btn';
-      icsBtn.textContent = 'Export .ics';
-      icsBtn.addEventListener('click', () => downloadEventICS(evt));
-
-      const delBtn = document.createElement('button');
-      delBtn.className = 'card-btn danger';
-      delBtn.innerHTML = '\uD83D\uDDD1 Delete';
-      delBtn.addEventListener('click', () => deleteEvent(evt.id));
-
-      actions.append(gcalBtn, editBtn, icsBtn, delBtn);
-      card.appendChild(actions);
-      upcomingList.appendChild(card);
-    });
-  }
 
   function formatDateRange(evt) {
     const s = new Date(evt.start), e = new Date(evt.end);
