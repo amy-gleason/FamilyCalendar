@@ -4,6 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Where in the World is Amy?</title>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
 <style>
   :root {
     --bg: #FAFBFE;
@@ -1067,6 +1069,21 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+  // Firebase setup
+  const firebaseConfig = {
+    apiKey: "AIzaSyDZkZEQQjsUis_4a1QASc7awaQjXlh2qAs",
+    authDomain: "ag-calendar-2c8ab.firebaseapp.com",
+    databaseURL: "https://ag-calendar-2c8ab-default-rtdb.firebaseio.com",
+    projectId: "ag-calendar-2c8ab",
+    storageBucket: "ag-calendar-2c8ab.firebasestorage.app",
+    messagingSenderId: "974911392334",
+    appId: "1:974911392334:web:ea96f47aa8b6d5d7d1111f"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+  const messagesRef = db.ref('messages');
+  const photosRef = db.ref('photos');
+
   const STORAGE_KEY = 'family_travel_events_v1';
   const FAMILY_EMAIL = 'volgril71@gmail.com';
 
@@ -1076,7 +1093,7 @@ document.addEventListener('DOMContentLoaded', () => {
     { match: ['dc', 'washington', 'health prom'], bg: '#CCFBF1', border: '#5EEAD4', text: '#0D9488', label: 'Washington DC' },
     { match: ['london', 'uk', 'digital services europe'], bg: '#DBEAFE', border: '#93C5FD', text: '#2563EB', label: 'London' },
     { match: ['vegas', 'las vegas'], bg: '#FEF3C7', border: '#FCD34D', text: '#D97706', label: 'Las Vegas' },
-    { match: ['jacksonville', 'jax', 'optum', 'sawgrass'], bg: '#D1FAE5', border: '#6EE7B7', text: '#059669', label: 'Jacksonville' },
+    { match: ['jacksonville', 'jax', 'optum', 'sawgrass'], bg: '#E0E7FF', border: '#A5B4FC', text: '#4338CA', label: 'Jacksonville' },
     { match: ['palm beach', 'pbi'], bg: '#FFEDD5', border: '#FDBA74', text: '#EA580C', label: 'Palm Beach' },
     { match: ['nashville', 'home'], bg: '#F3E8FF', border: '#D8B4FE', text: '#7C3AED', label: 'Nashville' },
   ];
@@ -1749,18 +1766,14 @@ document.addEventListener('DOMContentLoaded', () => {
   function unesc(t='') { return t.replace(/\\n/g,'\n').replace(/\\,/g,',').replace(/\\;/g,';').replace(/\\\\/g,'\\').trim(); }
 
   // ========================
-  // MESSAGE BOARD
+  // MESSAGE BOARD (Firebase)
   // ========================
-  const MSG_KEY = 'family_messages_v1';
+  let cachedMessages = [];
 
-  function loadMessages() {
-    try { const m = JSON.parse(localStorage.getItem(MSG_KEY)); return Array.isArray(m) ? m : []; }
-    catch(e) { return []; }
-  }
-  function saveMessages(msgs) { localStorage.setItem(MSG_KEY, JSON.stringify(msgs)); }
+  function loadMessages() { return cachedMessages; }
 
   function renderMessages() {
-    const msgs = loadMessages();
+    const msgs = cachedMessages;
     const list = $('msg-list');
     if (!msgs.length) {
       list.innerHTML = '<div class="msg-empty">No messages yet. Be the first to say hi!</div>';
@@ -1785,9 +1798,7 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
       item.querySelector('.msg-delete').addEventListener('click', () => {
         if (!confirm('Delete this message?')) return;
-        const all = loadMessages().filter(m => m.id !== msg.id);
-        saveMessages(all);
-        renderMessages();
+        messagesRef.child(msg.id).remove();
       });
       list.appendChild(item);
     });
@@ -1796,39 +1807,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function escHTML(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
+  // Real-time listener — auto-renders when anyone posts
+  messagesRef.on('value', snap => {
+    const data = snap.val() || {};
+    cachedMessages = Object.keys(data).map(k => ({ id: k, ...data[k] }));
+    cachedMessages.sort((a,b) => (a.ts||'').localeCompare(b.ts||''));
+    renderMessages();
+  });
+
   $('msg-send').addEventListener('click', () => {
     const name = $('msg-name').value.trim();
     const text = $('msg-text').value.trim();
     if (!name || !text) { alert('Please enter your name and a message.'); return; }
-    const msgs = loadMessages();
-    msgs.push({ id: crypto.randomUUID?.() || `msg-${Date.now()}`, name, text, ts: new Date().toISOString() });
-    saveMessages(msgs);
+    const id = crypto.randomUUID?.() || `msg-${Date.now()}`;
+    messagesRef.child(id).set({ name, text, ts: new Date().toISOString() });
     $('msg-text').value = '';
-    renderMessages();
+    // Remember the user's name for convenience
+    localStorage.setItem('family_msg_name', name);
   });
+
+  // Pre-fill name if they've posted before
+  const savedName = localStorage.getItem('family_msg_name');
+  if (savedName) $('msg-name').value = savedName;
 
   $('msg-text').addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('msg-send').click(); }
   });
 
-  renderMessages();
-
   // ========================
-  // PHOTO GALLERY
+  // PHOTO GALLERY (Firebase)
   // ========================
-  const PHOTO_KEY = 'family_photos_v1';
+  let cachedPhotos = [];
 
-  function loadPhotos() {
-    try { const p = JSON.parse(localStorage.getItem(PHOTO_KEY)); return Array.isArray(p) ? p : []; }
-    catch(e) { return []; }
-  }
-  function savePhotos(photos) {
-    try { localStorage.setItem(PHOTO_KEY, JSON.stringify(photos)); }
-    catch(e) { alert('Storage full! Try removing some photos.'); }
-  }
+  function loadPhotos() { return cachedPhotos; }
 
   function renderGallery() {
-    const photos = loadPhotos();
+    const photos = cachedPhotos;
     const grid = $('gallery-grid');
     if (!photos.length) {
       grid.innerHTML = '<div class="gallery-empty">No photos yet. Upload some trip memories!</div>';
@@ -1852,26 +1866,31 @@ document.addEventListener('DOMContentLoaded', () => {
       item.querySelector('.photo-delete').addEventListener('click', e => {
         e.stopPropagation();
         if (!confirm('Remove this photo?')) return;
-        const all = loadPhotos().filter(p => p.id !== photo.id);
-        savePhotos(all);
-        renderGallery();
+        photosRef.child(photo.id).remove();
       });
       grid.appendChild(item);
     });
     if (typeof renderActivityPreviews === 'function') renderActivityPreviews();
   }
 
+  // Real-time listener for photos
+  photosRef.on('value', snap => {
+    const data = snap.val() || {};
+    cachedPhotos = Object.keys(data).map(k => ({ id: k, ...data[k] }));
+    cachedPhotos.sort((a,b) => (a.ts||'').localeCompare(b.ts||''));
+    renderGallery();
+  });
+
   function addPhotos(files) {
-    const photos = loadPhotos();
     let processed = 0;
+    const total = Array.from(files).filter(f => f.type.startsWith('image/')).length;
     Array.from(files).forEach(file => {
       if (!file.type.startsWith('image/')) return;
       const reader = new FileReader();
       reader.onload = ev => {
-        // Resize large images to save localStorage space
         const img = new Image();
         img.onload = () => {
-          const maxDim = 1200;
+          const maxDim = 800;
           let w = img.width, h = img.height;
           if (w > maxDim || h > maxDim) {
             const ratio = Math.min(maxDim/w, maxDim/h);
@@ -1881,14 +1900,11 @@ document.addEventListener('DOMContentLoaded', () => {
           const canvas = document.createElement('canvas');
           canvas.width = w; canvas.height = h;
           canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-          const data = canvas.toDataURL('image/jpeg', 0.7);
+          const data = canvas.toDataURL('image/jpeg', 0.5);
           const caption = prompt(`Caption for "${file.name}"? (optional)`) || '';
-          photos.push({ id: crypto.randomUUID?.() || `photo-${Date.now()}-${Math.random()}`, data, caption, ts: new Date().toISOString() });
+          const id = crypto.randomUUID?.() || `photo-${Date.now()}-${Math.random()}`;
+          photosRef.child(id).set({ data, caption, ts: new Date().toISOString() });
           processed++;
-          if (processed === files.length) {
-            savePhotos(photos);
-            renderGallery();
-          }
         };
         img.src = ev.target.result;
       };
@@ -1906,8 +1922,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Lightbox close
   $('lightbox').addEventListener('click', () => $('lightbox').classList.remove('active'));
-
-  renderGallery();
 
   // Event listeners
   $('add-trip-btn').addEventListener('click', () => openModal(null));
