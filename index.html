@@ -1170,18 +1170,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let events = [], months = [], currentMonthIndex = 0;
 
-  init();
-
-  async function init() {
-    events = loadEvents();
-    if (!events.length) {
-      await autoImportICS();
-      events = loadEvents();
-    }
-    applyMarch2026StatusUpdates();
-    refresh();
-  }
-
   // One-time migration: mark canceled/tentative events for the week Amy was home sick
   function applyMarch2026StatusUpdates() {
     if (localStorage.getItem('status_migration_v1')) return;
@@ -1290,6 +1278,18 @@ document.addEventListener('DOMContentLoaded', () => {
       if (parsed.length) { events = parsed; persistEvents(); }
     } catch(e) { console.warn('Auto import skipped:', e.message); }
   }
+
+  // Initialize — must be after DEFAULT_EVENTS and loadEvents are defined
+  async function init() {
+    events = loadEvents();
+    if (!events.length) {
+      await autoImportICS();
+      events = loadEvents();
+    }
+    applyMarch2026StatusUpdates();
+    refresh();
+  }
+  init();
 
   function refresh() {
     normalizeEvents();
@@ -2030,4 +2030,3 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
-<!-- v1772689944 -->
