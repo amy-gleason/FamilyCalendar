@@ -395,6 +395,85 @@
   }
   .send-all-btn:hover { background: #047857; }
 
+  /* Activity teaser strip */
+  .activity-strip {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 28px;
+  }
+  .activity-card {
+    background: var(--card);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    padding: 16px 20px;
+    overflow: hidden;
+  }
+  .activity-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .activity-icon { font-size: 20px; }
+  .activity-title { font-size: 15px; font-weight: 700; flex: 1; }
+  .activity-link {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 8px;
+    transition: background 0.15s;
+  }
+  .activity-link:hover { background: #FFF4E6; }
+  .activity-preview { display: flex; flex-direction: column; gap: 8px; }
+  .activity-empty { font-size: 13px; color: var(--muted); text-align: center; padding: 12px; }
+  .preview-msg {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 8px 10px;
+    background: #F8FAFC;
+    border-radius: 10px;
+    font-size: 13px;
+  }
+  .preview-msg-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .preview-msg-body { flex: 1; min-width: 0; }
+  .preview-msg-name { font-weight: 600; font-size: 12px; }
+  .preview-msg-text { color: #475569; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .preview-photos {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .preview-photo {
+    aspect-ratio: 1;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .preview-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  @media (max-width: 640px) {
+    .activity-strip { grid-template-columns: 1fr; }
+  }
+
   /* Side panel tabs */
   .side-tabs {
     position: fixed;
@@ -817,6 +896,30 @@
       </div>
       <div class="month-grid" id="month-grid"></div>
     </section>
+
+    <!-- Activity teaser -->
+    <div class="activity-strip">
+      <div class="activity-card">
+        <div class="activity-header">
+          <span class="activity-icon">&#x1F4AC;</span>
+          <span class="activity-title">Family Messages</span>
+          <button class="activity-link" id="open-messages-panel">View All &rarr;</button>
+        </div>
+        <div class="activity-preview" id="messages-preview">
+          <div class="activity-empty">No messages yet — be the first to leave one!</div>
+        </div>
+      </div>
+      <div class="activity-card">
+        <div class="activity-header">
+          <span class="activity-icon">&#x1F4F7;</span>
+          <span class="activity-title">Trip Photos</span>
+          <button class="activity-link" id="open-photos-panel">View All &rarr;</button>
+        </div>
+        <div class="activity-preview" id="photos-preview">
+          <div class="activity-empty">No photos yet — share your trip pics!</div>
+        </div>
+      </div>
+    </div>
 
   </div>
 
@@ -1738,6 +1841,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const list = $('msg-list');
     if (!msgs.length) {
       list.innerHTML = '<div class="msg-empty">No messages yet. Be the first to say hi!</div>';
+      if (typeof renderActivityPreviews === 'function') renderActivityPreviews();
       return;
     }
     list.innerHTML = '';
@@ -1764,6 +1868,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       list.appendChild(item);
     });
+    if (typeof renderActivityPreviews === 'function') renderActivityPreviews();
   }
 
   function escHTML(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
@@ -1804,6 +1909,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const grid = $('gallery-grid');
     if (!photos.length) {
       grid.innerHTML = '<div class="gallery-empty">No photos yet. Upload some trip memories!</div>';
+      if (typeof renderActivityPreviews === 'function') renderActivityPreviews();
       return;
     }
     grid.innerHTML = '';
@@ -1829,6 +1935,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       grid.appendChild(item);
     });
+    if (typeof renderActivityPreviews === 'function') renderActivityPreviews();
   }
 
   function addPhotos(files) {
@@ -1916,6 +2023,48 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   $('panel-close').addEventListener('click', closePanel);
   panelOverlay.addEventListener('click', closePanel);
+  $('open-messages-panel').addEventListener('click', () => openPanel('messages'));
+  $('open-photos-panel').addEventListener('click', () => openPanel('photos'));
+
+  // Activity preview rendering
+  function renderActivityPreviews() {
+    // Messages preview — show latest 3
+    const msgs = loadMessages().slice().reverse().slice(0, 3);
+    const msgPreview = $('messages-preview');
+    if (!msgs.length) {
+      msgPreview.innerHTML = '<div class="activity-empty">No messages yet — be the first to leave one!</div>';
+    } else {
+      msgPreview.innerHTML = '';
+      msgs.forEach(msg => {
+        const initials = (msg.name || '?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+        const colors = ['#FF8200','#EC4899','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EF4444','#14B8A6'];
+        const color = colors[Math.abs([...msg.name].reduce((a,c)=>a+c.charCodeAt(0),0)) % colors.length];
+        const div = document.createElement('div');
+        div.className = 'preview-msg';
+        div.innerHTML = `<div class="preview-msg-avatar" style="background:${color}">${initials}</div><div class="preview-msg-body"><div class="preview-msg-name">${escHTML(msg.name)}</div><div class="preview-msg-text">${escHTML(msg.text)}</div></div>`;
+        msgPreview.appendChild(div);
+      });
+    }
+
+    // Photos preview — show latest 6
+    const photos = loadPhotos().slice(-6);
+    const photoPreview = $('photos-preview');
+    if (!photos.length) {
+      photoPreview.innerHTML = '<div class="activity-empty">No photos yet — share your trip pics!</div>';
+    } else {
+      photoPreview.innerHTML = '';
+      const grid = document.createElement('div');
+      grid.className = 'preview-photos';
+      photos.forEach(photo => {
+        const div = document.createElement('div');
+        div.className = 'preview-photo';
+        div.innerHTML = `<img src="${photo.data}" alt="${escHTML(photo.caption||'')}" loading="lazy" />`;
+        div.addEventListener('click', () => openPanel('photos'));
+        grid.appendChild(div);
+      });
+      photoPreview.appendChild(grid);
+    }
+  }
 
   $('prev-month').addEventListener('click', () => { currentMonthIndex = Math.max(0, currentMonthIndex-1); renderCalendar(); });
   $('next-month').addEventListener('click', () => { currentMonthIndex = Math.min(months.length-1, currentMonthIndex+1); renderCalendar(); });
