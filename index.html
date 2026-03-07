@@ -175,6 +175,102 @@
     border-radius: 50%;
   }
 
+  /* Filter bar */
+  .filter-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding: 14px 16px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+  }
+  .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .filter-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    min-width: 60px;
+  }
+  .filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 2px solid #CBD5E1;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .filter-chip:hover { background: #F1F5F9; }
+  .filter-chip.active {
+    color: #fff;
+    border-color: transparent;
+  }
+  .filter-chip .filter-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+  }
+
+  /* Person picker in modal */
+  .person-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 4px 0;
+  }
+  .person-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 2px solid #CBD5E1;
+    background: transparent;
+    color: #64748B;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+  }
+  .person-chip:hover { opacity: 0.85; }
+  .person-chip.selected {
+    color: #fff;
+    border-color: transparent;
+  }
+  .person-chip .chip-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+  }
+
+  /* Person dots on event chips */
+  .person-dots {
+    display: inline-flex;
+    gap: 2px;
+    margin-left: 4px;
+    vertical-align: middle;
+  }
+  .person-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+    border: 1px solid rgba(255,255,255,0.6);
+  }
+
   /* Calendar */
   .calendar-section {
     background: var(--card);
@@ -901,6 +997,17 @@
       <!-- legend chips filled by JS, email button appended here -->
     </div>
 
+    <div class="filter-bar" id="filter-bar">
+      <div class="filter-group">
+        <span class="filter-label">Person</span>
+        <div id="person-filters"></div>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Location</span>
+        <div id="location-filters"></div>
+      </div>
+    </div>
+
     <div class="content-layout">
       <section class="calendar-section">
         <div class="month-nav">
@@ -1008,6 +1115,7 @@
       <h3 id="modal-title">Add trip</h3>
       <input type="hidden" id="event-id" />
       <div><label for="event-title">Title</label><input type="text" id="event-title" required /></div>
+      <div><label>Who's traveling?</label><div class="person-picker" id="event-persons"></div></div>
       <div style="display:flex;align-items:center;gap:10px;">
         <label style="display:inline;margin:0;cursor:pointer;"><input type="checkbox" id="event-allday" style="width:auto;margin-right:4px;" /> All day</label>
       </div>
@@ -1084,8 +1192,47 @@ document.addEventListener('DOMContentLoaded', () => {
   const messagesRef = db.ref('messages');
   const photosRef = db.ref('photos');
 
-  const STORAGE_KEY = 'family_travel_events_v2';
+  const STORAGE_KEY = 'family_travel_events_v3';
   const FAMILY_EMAIL = 'volgril71@gmail.com';
+
+  // Family members
+  const FAMILY_MEMBERS = [
+    { name: 'Amy', color: '#FF8200' },
+    { name: 'Papa', color: '#6366F1' },
+    { name: 'Sara', color: '#EC4899' },
+    { name: 'Mikeo', color: '#14B8A6' },
+    { name: 'Tracy', color: '#F59E0B' },
+    { name: 'Mark', color: '#3B82F6' },
+    { name: 'Joanne', color: '#8B5CF6' },
+    { name: 'Mike G', color: '#EF4444' },
+    { name: 'Morgan', color: '#10B981' },
+    { name: 'Katie', color: '#F472B6' },
+  ];
+  function getMemberColor(name) {
+    const m = FAMILY_MEMBERS.find(f => f.name === name);
+    return m ? m.color : '#94A3B8';
+  }
+
+  // Active filters
+  let activePersonFilters = [];  // empty = show all
+  let activeLocationFilters = []; // empty = show all
+
+  function filterEvents(evts) {
+    let filtered = evts;
+    if (activePersonFilters.length) {
+      filtered = filtered.filter(e => {
+        const persons = e.persons || ['Amy'];
+        return persons.some(p => activePersonFilters.includes(p));
+      });
+    }
+    if (activeLocationFilters.length) {
+      filtered = filtered.filter(e => {
+        const loc = getLocColor(e);
+        return activeLocationFilters.includes(loc.label);
+      });
+    }
+    return filtered;
+  }
 
   // Location color map
   const LOCATIONS = [
@@ -1123,6 +1270,112 @@ document.addEventListener('DOMContentLoaded', () => {
   const allDayField = $('event-allday'), durationField = $('event-duration');
   const endWrap = $('end-wrap'), startLabel = $('start-label');
   const modalDeleteBtn = $('modal-delete-btn');
+  const personPickerEl = $('event-persons');
+  let selectedPersons = [];
+
+  // Build person picker chips in modal
+  function buildPersonPicker() {
+    personPickerEl.innerHTML = '';
+    FAMILY_MEMBERS.forEach(m => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'person-chip';
+      chip.innerHTML = `<span class="chip-dot" style="background:${m.color}"></span>${m.name}`;
+      chip.addEventListener('click', () => {
+        const idx = selectedPersons.indexOf(m.name);
+        if (idx >= 0) selectedPersons.splice(idx, 1);
+        else selectedPersons.push(m.name);
+        updatePersonPickerUI();
+      });
+      chip.dataset.name = m.name;
+      personPickerEl.appendChild(chip);
+    });
+  }
+  function updatePersonPickerUI() {
+    personPickerEl.querySelectorAll('.person-chip').forEach(chip => {
+      const name = chip.dataset.name;
+      const m = FAMILY_MEMBERS.find(f => f.name === name);
+      if (selectedPersons.includes(name)) {
+        chip.classList.add('selected');
+        chip.style.background = m.color;
+        chip.style.borderColor = m.color;
+        chip.style.color = '#fff';
+      } else {
+        chip.classList.remove('selected');
+        chip.style.background = 'transparent';
+        chip.style.borderColor = '#CBD5E1';
+        chip.style.color = '#64748B';
+      }
+    });
+  }
+  buildPersonPicker();
+
+  // Build filter bar
+  function renderFilters() {
+    const personContainer = $('person-filters');
+    const locationContainer = $('location-filters');
+
+    // Person filters — show members who have events + "All"
+    const personsInEvents = new Set();
+    events.forEach(e => (e.persons || ['Amy']).forEach(p => personsInEvents.add(p)));
+    personContainer.innerHTML = '';
+    const allPBtn = document.createElement('button');
+    allPBtn.type = 'button';
+    allPBtn.className = 'filter-chip' + (activePersonFilters.length === 0 ? ' active' : '');
+    allPBtn.textContent = 'All';
+    allPBtn.style.cssText = activePersonFilters.length === 0 ? 'background:#475569;color:#fff;border-color:#475569;' : '';
+    allPBtn.addEventListener('click', () => { activePersonFilters = []; renderFilters(); refresh(); });
+    personContainer.appendChild(allPBtn);
+
+    FAMILY_MEMBERS.filter(m => personsInEvents.has(m.name)).forEach(m => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      const isActive = activePersonFilters.includes(m.name);
+      chip.className = 'filter-chip' + (isActive ? ' active' : '');
+      chip.innerHTML = `<span class="filter-dot" style="background:${m.color}"></span>${m.name}`;
+      chip.style.cssText = isActive ? `background:${m.color};color:#fff;border-color:${m.color};` : '';
+      chip.addEventListener('click', () => {
+        const idx = activePersonFilters.indexOf(m.name);
+        if (idx >= 0) activePersonFilters.splice(idx, 1);
+        else activePersonFilters.push(m.name);
+        renderFilters();
+        refresh();
+      });
+      personContainer.appendChild(chip);
+    });
+
+    // Location filters — show locations present in events
+    const locsInEvents = new Map();
+    events.forEach(e => {
+      const loc = getLocColor(e);
+      if (!locsInEvents.has(loc.label)) locsInEvents.set(loc.label, loc);
+    });
+    locationContainer.innerHTML = '';
+    const allLBtn = document.createElement('button');
+    allLBtn.type = 'button';
+    allLBtn.className = 'filter-chip' + (activeLocationFilters.length === 0 ? ' active' : '');
+    allLBtn.textContent = 'All';
+    allLBtn.style.cssText = activeLocationFilters.length === 0 ? 'background:#475569;color:#fff;border-color:#475569;' : '';
+    allLBtn.addEventListener('click', () => { activeLocationFilters = []; renderFilters(); refresh(); });
+    locationContainer.appendChild(allLBtn);
+
+    [...locsInEvents.entries()].sort((a,b) => a[0].localeCompare(b[0])).forEach(([label, loc]) => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      const isActive = activeLocationFilters.includes(label);
+      chip.className = 'filter-chip' + (isActive ? ' active' : '');
+      chip.innerHTML = `<span class="filter-dot" style="background:${loc.text}"></span>${label}`;
+      chip.style.cssText = isActive ? `background:${loc.text};color:#fff;border-color:${loc.text};` : '';
+      chip.addEventListener('click', () => {
+        const idx = activeLocationFilters.indexOf(label);
+        if (idx >= 0) activeLocationFilters.splice(idx, 1);
+        else activeLocationFilters.push(label);
+        renderFilters();
+        refresh();
+      });
+      locationContainer.appendChild(chip);
+    });
+  }
 
   statusField.addEventListener('change', () => {
     cancelReasonWrap.style.display = statusField.value === 'canceled' ? 'block' : 'none';
@@ -1254,7 +1507,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Default events embedded for GitHub Pages (so family sees events without localStorage)
-  const DEFAULT_EVENTS = [{"id":"20260301-travel-nyc@smokey","title":"Fly to NYC (Cornell Conference 3/2)","start":"2026-03-01T06:00:00.000Z","end":"2026-03-01T23:59:59.000Z","tz":"America/Chicago","location":"New York City (JFK/LGA)","notes":"All-day travel block to position for the Cornell conference on 3/2.","allDay":true,"status":"canceled","cancelReason":"Home Sick"},{"id":"20260302-cornell@smokey","title":"Cornell Conference (NYC)","start":"2026-03-02T06:00:00.000Z","end":"2026-03-02T23:59:59.000Z","tz":"America/Chicago","location":"Cornell (NYC)","notes":"Conference day in NYC.","allDay":true,"status":"canceled","cancelReason":"Home Sick"},{"id":"20260303-cnbc@smokey","title":"CNBC Cures Conference (NYC)","start":"2026-03-03T06:00:00.000Z","end":"2026-03-03T23:59:59.000Z","tz":"America/Chicago","location":"New York City","notes":"Full day at the CNBC Cures conference.","allDay":true,"status":"canceled","cancelReason":"Home Sick"},{"id":"20260303-palmbeach@smokey","title":"Fly to Palm Beach for Conference","start":"2026-03-03T06:00:00.000Z","end":"2026-03-03T23:59:59.000Z","tz":"America/Chicago","location":"Palm Beach, FL (PBI)","notes":"Post-conference evening flight from NYC down to Palm Beach.","allDay":true,"status":"canceled","cancelReason":"Home Sick"},{"id":"home-sick-march@smokey","title":"Home sick","start":"2026-03-01T06:00:00.000Z","end":"2026-03-04T23:59:59.000Z","tz":"America/Chicago","location":"Nashville","notes":"Home sick in Nashville","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260305-travel-dc@smokey","title":"Hopefully Fly to Washington, DC","start":"2026-03-05T06:00:00.000Z","end":"2026-03-05T23:59:59.000Z","tz":"America/Chicago","location":"Washington, DC (DCA/IAD)","notes":"Travel day to DC.","allDay":true,"status":"tentative","cancelReason":""},{"id":"20260306-work-dc@smokey","title":"Work Day in DC","start":"2026-03-06T06:00:00.000Z","end":"2026-03-06T23:59:59.000Z","tz":"America/Chicago","location":"Washington, DC","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260307-health-prom@smokey","title":"Health Prom (DC)","start":"2026-03-07T06:00:00.000Z","end":"2026-03-07T23:59:59.000Z","tz":"America/Chicago","location":"Washington, DC","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260308-travel-vegas@smokey","title":"Fly to Las Vegas","start":"2026-03-08T06:00:00.000Z","end":"2026-03-08T23:59:59.000Z","tz":"America/Chicago","location":"Las Vegas, NV (LAS)","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260309-himss@smokey","title":"HIMSS","start":"2026-03-09T06:00:00.000Z","end":"2026-03-11T23:59:59.000Z","tz":"America/Chicago","location":"Las Vegas","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260312-himss-morning@smokey","title":"HIMSS Morning","start":"2026-03-12T06:00:00.000Z","end":"2026-03-12T23:59:59.000Z","tz":"America/Chicago","location":"Las Vegas","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260312-travel-jax@smokey","title":"Fly to Jacksonville for Optum Event","start":"2026-03-12T17:00:00.000Z","end":"2026-03-12T23:59:59.000Z","tz":"America/Chicago","location":"Jacksonville, FL (JAX)","allDay":false,"status":"confirmed","cancelReason":""},{"id":"20260313-optum-talk@smokey","title":"Optum Speaking Event @ Golf Tournament","start":"2026-03-13T06:00:00.000Z","end":"2026-03-13T23:59:59.000Z","tz":"America/Chicago","location":"Jacksonville, FL (TPC Sawgrass area)","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260314-optum-golf@smokey","title":"Optum Golf Day","start":"2026-03-14T06:00:00.000Z","end":"2026-03-14T23:59:59.000Z","tz":"America/Chicago","location":"Jacksonville, FL","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260315-travel-dc-nyc@smokey","title":"Jacksonville → DC → NYC","start":"2026-03-15T06:00:00.000Z","end":"2026-03-15T23:59:59.000Z","tz":"America/Chicago","location":"Jacksonville to Washington, DC to New York City","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260316-dc-block@smokey","title":"DC and then fly or take the train to NYC","start":"2026-03-16T06:00:00.000Z","end":"2026-03-16T23:59:59.000Z","tz":"America/Chicago","location":"Washington, DC","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260317-google-event@smokey","title":"Google Event (NYC)","start":"2026-03-17T06:00:00.000Z","end":"2026-03-17T23:59:59.000Z","tz":"America/Chicago","location":"New York City","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260318-dc-block@smokey","title":"Working from DC","start":"2026-03-18T06:00:00.000Z","end":"2026-03-22T23:59:59.000Z","tz":"America/Chicago","location":"Washington, DC","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260322-london-flight@smokey","title":"Fly to London (Digital Services Europe)","start":"2026-03-22T19:00:00.000Z","end":"2026-03-23T06:00:00.000Z","tz":"America/Chicago","location":"Washington, DC to London","notes":"Evening American Airlines flight (~7pm) to London.","allDay":false,"status":"confirmed","cancelReason":""},{"id":"20260323-dse-london@smokey","title":"Digital Services Europe (London)","start":"2026-03-23T06:00:00.000Z","end":"2026-03-28T23:59:59.000Z","tz":"Europe/London","location":"London, UK","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260329-return-dc@smokey","title":"Fly back to DC","start":"2026-03-29T14:00:00.000Z","end":"2026-03-29T23:59:59.000Z","tz":"Europe/London","location":"London → Washington, DC","notes":"American Airlines flight departing London around 2pm.","allDay":false,"status":"confirmed","cancelReason":""},{"id":"20260331-frontier@smokey","title":"Frontier (Asheville)","start":"2026-03-31T06:00:00.000Z","end":"2026-04-02T23:59:59.000Z","tz":"America/Chicago","location":"Asheville, NC","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260403-nashville@smokey","title":"Nashville","start":"2026-04-03T06:00:00.000Z","end":"2026-04-06T23:59:59.000Z","tz":"America/Chicago","location":"Nashville","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260407-tn-oncology@smokey","title":"Tennessee Oncology → Drive to Knoxville","start":"2026-04-07T06:00:00.000Z","end":"2026-04-07T23:59:59.000Z","tz":"America/Chicago","location":"Nashville → Knoxville, TN","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260408-baker-school@smokey","title":"Speaking @ Tennessee Baker School","start":"2026-04-08T21:30:00.000Z","end":"2026-04-08T22:30:00.000Z","tz":"America/Chicago","location":"Knoxville, TN","allDay":false,"status":"confirmed","cancelReason":""},{"id":"20260409-cms-ecosystem@smokey","title":"CMS Ecosystem Conference","start":"2026-04-09T06:00:00.000Z","end":"2026-04-09T23:59:59.000Z","tz":"America/Chicago","location":"CMS Ecosystem Conference","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260413-kroger-hyvee@smokey","title":"Kroger/HyVee","start":"2026-04-13T06:00:00.000Z","end":"2026-04-14T23:59:59.000Z","tz":"America/Chicago","location":"Iowa","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260421-health-evolution@smokey","title":"Health Evolution","start":"2026-04-21T06:00:00.000Z","end":"2026-04-23T23:59:59.000Z","tz":"America/Chicago","location":"Laguna Beach, CA","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260429-hccs@smokey","title":"HCCS Conference","start":"2026-04-29T06:00:00.000Z","end":"2026-04-30T23:59:59.000Z","tz":"America/Chicago","location":"Orlando, FL","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260504-ncpdp@smokey","title":"NCPDP Conference","start":"2026-05-04T06:00:00.000Z","end":"2026-05-06T23:59:59.000Z","tz":"America/Chicago","location":"Scottsdale, AZ","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260507-nam@smokey","title":"NAM","start":"2026-05-07T06:00:00.000Z","end":"2026-05-07T23:59:59.000Z","tz":"America/Chicago","location":"Washington, DC","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260509-mike-tracy@smokey","title":"Mike & Tracy (if available)","start":"2026-05-09T06:00:00.000Z","end":"2026-05-10T23:59:59.000Z","tz":"America/Chicago","location":"TBD","allDay":true,"status":"tentative","cancelReason":""},{"id":"20260511-napa@smokey","title":"Napa Valley","start":"2026-05-11T06:00:00.000Z","end":"2026-05-13T23:59:59.000Z","tz":"America/Chicago","location":"Napa, CA (OAK)","allDay":true,"status":"confirmed","cancelReason":""},{"id":"20260527-apg@smokey","title":"APG Conference","start":"2026-05-27T06:00:00.000Z","end":"2026-05-29T23:59:59.000Z","tz":"America/Chicago","location":"San Diego, CA","allDay":true,"status":"confirmed","cancelReason":""}];
+  const DEFAULT_EVENTS = [{"id":"20260301-travel-nyc@smokey","title":"Fly to NYC (Cornell Conference 3/2)","start":"2026-03-01T06:00:00.000Z","end":"2026-03-01T23:59:59.000Z","tz":"America/Chicago","location":"New York City (JFK/LGA)","notes":"All-day travel block to position for the Cornell conference on 3/2.","allDay":true,"status":"canceled","cancelReason":"Home Sick","persons":["Amy"]},{"id":"20260302-cornell@smokey","title":"Cornell Conference (NYC)","start":"2026-03-02T06:00:00.000Z","end":"2026-03-02T23:59:59.000Z","tz":"America/Chicago","location":"Cornell (NYC)","notes":"Conference day in NYC.","allDay":true,"status":"canceled","cancelReason":"Home Sick","persons":["Amy"]},{"id":"20260303-cnbc@smokey","title":"CNBC Cures Conference (NYC)","start":"2026-03-03T06:00:00.000Z","end":"2026-03-03T23:59:59.000Z","tz":"America/Chicago","location":"New York City","notes":"Full day at the CNBC Cures conference.","allDay":true,"status":"canceled","cancelReason":"Home Sick","persons":["Amy"]},{"id":"20260303-palmbeach@smokey","title":"Fly to Palm Beach for Conference","start":"2026-03-03T06:00:00.000Z","end":"2026-03-03T23:59:59.000Z","tz":"America/Chicago","location":"Palm Beach, FL (PBI)","notes":"Post-conference evening flight from NYC down to Palm Beach.","allDay":true,"status":"canceled","cancelReason":"Home Sick","persons":["Amy"]},{"id":"home-sick-march@smokey","title":"Home sick","start":"2026-03-01T06:00:00.000Z","end":"2026-03-04T23:59:59.000Z","tz":"America/Chicago","location":"Nashville","notes":"Home sick in Nashville","allDay":true,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260305-travel-dc@smokey","title":"Hopefully Fly to Washington, DC","start":"2026-03-05T06:00:00.000Z","end":"2026-03-05T23:59:59.000Z","tz":"America/Chicago","location":"Washington, DC (DCA/IAD)","notes":"Travel day to DC.","allDay":true,"status":"tentative","cancelReason":"","persons":["Amy"]},{"id":"20260306-work-dc@smokey","title":"Work Day in DC","start":"2026-03-06T06:00:00.000Z","end":"2026-03-06T23:59:59.000Z","tz":"America/Chicago","location":"Washington, DC","allDay":true,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260307-health-prom@smokey","title":"Health Prom (DC)","start":"2026-03-07T06:00:00.000Z","end":"2026-03-07T23:59:59.000Z","tz":"America/Chicago","location":"Washington, DC","allDay":true,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260308-travel-vegas@smokey","title":"Fly to Las Vegas","start":"2026-03-08T06:00:00.000Z","end":"2026-03-08T23:59:59.000Z","tz":"America/Chicago","location":"Las Vegas, NV (LAS)","allDay":true,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260309-himss@smokey","title":"HIMSS","start":"2026-03-09T06:00:00.000Z","end":"2026-03-11T23:59:59.000Z","tz":"America/Chicago","location":"Las Vegas","allDay":true,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260312-himss-morning@smokey","title":"HIMSS Morning","start":"2026-03-12T06:00:00.000Z","end":"2026-03-12T23:59:59.000Z","tz":"America/Chicago","location":"Las Vegas","allDay":true,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260312-travel-jax@smokey","title":"Fly to Jacksonville for Optum Event","start":"2026-03-12T17:00:00.000Z","end":"2026-03-12T23:59:59.000Z","tz":"America/Chicago","location":"Jacksonville, FL (JAX)","allDay":false,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260313-optum-talk@smokey","title":"Optum Speaking Event @ Golf Tournament","start":"2026-03-13T06:00:00.000Z","end":"2026-03-13T23:59:59.000Z","tz":"America/Chicago","location":"Jacksonville, FL (TPC Sawgrass area)","allDay":true,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260314-optum-golf@smokey","title":"Optum Golf Day","start":"2026-03-14T06:00:00.000Z","end":"2026-03-14T23:59:59.000Z","tz":"America/Chicago","location":"Jacksonville, FL","allDay":true,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260315-travel-dc-nyc@smokey","title":"Jacksonville \u2192 DC \u2192 NYC","start":"2026-03-15T06:00:00.000Z","end":"2026-03-15T23:59:59.000Z","tz":"America/Chicago","location":"Jacksonville to Washington, DC to New York City","allDay":true,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260316-dc-block@smokey","title":"DC and then fly or take the train to NYC","start":"2026-03-16T06:00:00.000Z","end":"2026-03-16T23:59:59.000Z","tz":"America/Chicago","location":"Washington, DC","allDay":true,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260317-google-event@smokey","title":"Google Event (NYC)","start":"2026-03-17T06:00:00.000Z","end":"2026-03-17T23:59:59.000Z","tz":"America/Chicago","location":"New York City","allDay":true,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260318-dc-block@smokey","title":"Working from DC","start":"2026-03-18T06:00:00.000Z","end":"2026-03-22T23:59:59.000Z","tz":"America/Chicago","location":"Washington, DC","allDay":true,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260322-london-flight@smokey","title":"Fly to London (Digital Services Europe)","start":"2026-03-22T19:00:00.000Z","end":"2026-03-23T06:00:00.000Z","tz":"America/Chicago","location":"Washington, DC to London","notes":"Evening American Airlines flight (~7pm) to London.","allDay":false,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260323-dse-london@smokey","title":"Digital Services Europe (London)","start":"2026-03-23T06:00:00.000Z","end":"2026-03-28T23:59:59.000Z","tz":"Europe/London","location":"London, UK","allDay":true,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260329-return-dc@smokey","title":"Fly back to DC","start":"2026-03-29T14:00:00.000Z","end":"2026-03-29T23:59:59.000Z","tz":"Europe/London","location":"London \u2192 Washington, DC","notes":"American Airlines flight departing London around 2pm.","allDay":false,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260331-frontier@smokey","title":"Frontier (Asheville)","start":"2026-03-31T06:00:00.000Z","end":"2026-04-02T23:59:59.000Z","tz":"America/Chicago","location":"Asheville, NC","allDay":true,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260403-nashville@smokey","title":"Nashville","start":"2026-04-03T06:00:00.000Z","end":"2026-04-06T23:59:59.000Z","tz":"America/Chicago","location":"Nashville","allDay":true,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260407-tn-oncology@smokey","title":"Tennessee Oncology \u2192 Drive to Knoxville","start":"2026-04-07T06:00:00.000Z","end":"2026-04-07T23:59:59.000Z","tz":"America/Chicago","location":"Nashville \u2192 Knoxville, TN","allDay":true,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260408-baker-school@smokey","title":"Speaking @ Tennessee Baker School","start":"2026-04-08T21:30:00.000Z","end":"2026-04-08T22:30:00.000Z","tz":"America/Chicago","location":"Knoxville, TN","allDay":false,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260409-cms-ecosystem@smokey","title":"CMS Ecosystem Conference","start":"2026-04-09T06:00:00.000Z","end":"2026-04-09T23:59:59.000Z","tz":"America/Chicago","location":"CMS Ecosystem Conference","allDay":true,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260413-kroger-hyvee@smokey","title":"Kroger/HyVee","start":"2026-04-13T06:00:00.000Z","end":"2026-04-14T23:59:59.000Z","tz":"America/Chicago","location":"Iowa","allDay":true,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260421-health-evolution@smokey","title":"Health Evolution","start":"2026-04-21T06:00:00.000Z","end":"2026-04-23T23:59:59.000Z","tz":"America/Chicago","location":"Laguna Beach, CA","allDay":true,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260429-hccs@smokey","title":"HCCS Conference","start":"2026-04-29T06:00:00.000Z","end":"2026-04-30T23:59:59.000Z","tz":"America/Chicago","location":"Orlando, FL","allDay":true,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260504-ncpdp@smokey","title":"NCPDP Conference","start":"2026-05-04T06:00:00.000Z","end":"2026-05-06T23:59:59.000Z","tz":"America/Chicago","location":"Scottsdale, AZ","allDay":true,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260507-nam@smokey","title":"NAM","start":"2026-05-07T06:00:00.000Z","end":"2026-05-07T23:59:59.000Z","tz":"America/Chicago","location":"Washington, DC","allDay":true,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260509-mike-tracy@smokey","title":"Mike & Tracy (if available)","start":"2026-05-09T06:00:00.000Z","end":"2026-05-10T23:59:59.000Z","tz":"America/Chicago","location":"TBD","allDay":true,"status":"tentative","cancelReason":"","persons":["Amy"]},{"id":"20260511-napa@smokey","title":"Napa Valley","start":"2026-05-11T06:00:00.000Z","end":"2026-05-13T23:59:59.000Z","tz":"America/Chicago","location":"Napa, CA (OAK)","allDay":true,"status":"confirmed","cancelReason":"","persons":["Amy"]},{"id":"20260527-apg@smokey","title":"APG Conference","start":"2026-05-27T06:00:00.000Z","end":"2026-05-29T23:59:59.000Z","tz":"America/Chicago","location":"San Diego, CA","allDay":true,"status":"confirmed","cancelReason":"","persons":["Amy"]}];
 
   function loadEvents() {
     try {
@@ -1322,7 +1575,9 @@ document.addEventListener('DOMContentLoaded', () => {
     renderCalendar();
     renderStatus();
     renderLegend();
-    statusText.textContent = `${events.length} trip${events.length===1?'':'s'} tracked`;
+    renderFilters();
+    const filtered = filterEvents(events);
+    statusText.textContent = `${filtered.length} of ${events.length} trip${events.length===1?'':'s'} shown`;
   }
 
   function normalizeEvents() {
@@ -1340,8 +1595,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const todayStart = startOfDay(now);
     const sorted = [...events].sort((a,b) => new Date(a.start)-new Date(b.start));
 
-    // Get events happening today or in the future, skip canceled
-    const relevant = sorted.filter(e => startOfDay(new Date(e.end)) >= todayStart && e.status !== 'canceled');
+    // Get events happening today or in the future, skip canceled, apply filters
+    const relevant = filterEvents(sorted).filter(e => startOfDay(new Date(e.end)) >= todayStart && e.status !== 'canceled');
     const tiles = relevant.slice(0, 3);
 
     heroTiles.innerHTML = '';
@@ -1372,11 +1627,14 @@ document.addEventListener('DOMContentLoaded', () => {
         tile.style.opacity = '0.8';
       }
       const tentativeTag = evt.status === 'tentative' ? ' <span style="color:#D97706;font-size:12px;">(maybe)</span>' : '';
+      const persons = evt.persons || ['Amy'];
+      const personsLabel = persons.length <= 2 ? persons.join(' & ') : persons.slice(0,2).join(', ') + ` +${persons.length-2}`;
+      const personDots = persons.map(p => `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${getMemberColor(p)};margin-right:2px;" title="${p}"></span>`).join('');
       tile.innerHTML = `
         <div class="tile-when">${whenLabel}</div>
         <div class="tile-badge" style="background:${loc.bg};color:${loc.text};">${loc.label}</div>
         <div class="tile-title">${evt.title.replace(/^Travel:\s*/i,'')}${tentativeTag}</div>
-        ${evt.location ? `<div class="tile-loc">${evt.location}</div>` : ''}
+        <div class="tile-loc" style="display:flex;align-items:center;gap:4px;">${personDots}<span>${personsLabel}</span>${evt.location ? ` · ${evt.location}` : ''}</div>
       `;
       heroTiles.appendChild(tile);
     });
@@ -1464,7 +1722,8 @@ document.addEventListener('DOMContentLoaded', () => {
       cell.appendChild(num);
 
       const cellDate = new Date(m.year, m.month, day);
-      m.events.forEach(evt => {
+      const filteredEvts = filterEvents(m.events);
+      filteredEvts.forEach(evt => {
         if (occursOnDay(evt, cellDate)) {
           const loc = getLocColor(evt);
           const chip = document.createElement('div');
@@ -1474,7 +1733,10 @@ document.addEventListener('DOMContentLoaded', () => {
           // Shorten title for chip
           const shortTitle = evt.title.replace(/^Travel:\s*/i, '').replace(/\(.*?\)/g, '').trim();
           const cancelLabel = evt.status === 'canceled' ? `<span class="chip-cancel-label">${evt.cancelReason || 'Canceled'}</span>` : '';
-          chip.innerHTML = `${cancelLabel}<span class="chip-title">${shortTitle.length > 30 ? shortTitle.slice(0,28)+'...' : shortTitle}</span>`;
+          // Person dots
+          const persons = evt.persons || ['Amy'];
+          const dotsHTML = `<span class="person-dots">${persons.map(p => `<span class="person-dot" title="${p}" style="background:${getMemberColor(p)}"></span>`).join('')}</span>`;
+          chip.innerHTML = `${cancelLabel}<span class="chip-title">${shortTitle.length > 30 ? shortTitle.slice(0,28)+'...' : shortTitle}</span>${dotsHTML}`;
           if (evt.location) {
             const locSpan = document.createElement('span');
             locSpan.className = 'chip-loc';
@@ -1513,7 +1775,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const params = new URLSearchParams({
       action: 'TEMPLATE',
-      text: evt.title,
+      text: evt.title + (evt.persons && evt.persons.length ? ` (${evt.persons.join(' & ')})` : ''),
       dates: `${fmt(evt.start)}/${fmt(evt.end)}`,
       location: evt.location || '',
       details: evt.notes || '',
@@ -1592,6 +1854,9 @@ document.addEventListener('DOMContentLoaded', () => {
       statusField.value = event.status || 'confirmed';
       cancelReasonField.value = event.cancelReason || '';
       cancelReasonWrap.style.display = statusField.value === 'canceled' ? 'block' : 'none';
+      // Pre-fill persons from event
+      selectedPersons = [...(event.persons || ['Amy'])];
+      updatePersonPickerUI();
     } else {
       modalDeleteBtn.style.display = 'none';
       modalTitle.textContent = 'Add Trip';
@@ -1609,6 +1874,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const now = new Date();
       startField.value = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
       updateEndFromDuration();
+      // Default to last-used persons or Amy
+      const lastPersons = localStorage.getItem('family_travel_persons');
+      selectedPersons = lastPersons ? JSON.parse(lastPersons) : ['Amy'];
+      updatePersonPickerUI();
     }
   }
   function closeModal() { modal.classList.remove('active'); }
@@ -1641,9 +1910,11 @@ document.addEventListener('DOMContentLoaded', () => {
       endISO = new Date(endField.value).toISOString();
     }
 
+    if (!selectedPersons.length) { alert('Please select at least one person traveling.'); return; }
     const payload = {
       id: idField.value || crypto.randomUUID?.() || `evt-${Date.now()}`,
       title: titleField.value.trim(),
+      persons: [...selectedPersons],
       start: startISO,
       end: endISO,
       tz: tzField.value.trim() || 'America/Chicago',
@@ -1654,6 +1925,8 @@ document.addEventListener('DOMContentLoaded', () => {
       cancelReason: statusField.value === 'canceled' ? cancelReasonField.value.trim() : ''
     };
     if (!payload.title || !payload.start || !payload.end) { alert('Title, start, and end are required.'); return; }
+    // Remember last-used persons for convenience
+    localStorage.setItem('family_travel_persons', JSON.stringify(selectedPersons));
     const now = new Date().toISOString();
     const idx = events.findIndex(e => e.id === payload.id);
     if (idx >= 0) { events[idx] = { ...events[idx], ...payload, updatedAt: now }; }
