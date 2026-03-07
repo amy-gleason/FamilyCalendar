@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Where in the World is Amy?</title>
+<title>Where is My Fam?</title>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
 <style>
@@ -173,6 +173,28 @@
   .legend-dot {
     width: 8px; height: 8px;
     border-radius: 50%;
+  }
+
+  /* Filter toggle */
+  .filter-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .filter-toggle:hover { background: #F1F5F9; }
+  .filter-toggle.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .filter-active-summary {
+    font-size: 12px;
+    color: var(--muted);
   }
 
   /* Filter bar */
@@ -973,13 +995,16 @@
 
   <div class="hero">
     <div class="hero-top">
-      <h1>Where in the World is Amy?</h1>
-      <div class="hero-controls">
-        <button class="hero-btn" id="export-ics-btn">Export .ics</button>
-        <button class="hero-btn" id="import-ics-btn">Import ICS</button>
-        <button class="hero-btn" id="import-json-btn">Import JSON</button>
-        <button class="hero-btn" id="export-json-btn">Export JSON</button>
-        <button class="hero-btn primary" id="backup-btn">Backup</button>
+      <h1>Where is My Fam?</h1>
+      <div class="hero-controls" style="position:relative;">
+        <button class="hero-btn" id="menu-toggle" style="font-size:18px;">⚙️</button>
+        <div id="hero-menu" style="display:none;position:absolute;right:0;top:100%;margin-top:8px;background:#fff;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.15);padding:8px;z-index:50;min-width:160px;">
+          <button class="hero-btn" id="export-ics-btn" style="width:100%;text-align:left;color:#1E293B;border-color:transparent;">Export .ics</button>
+          <button class="hero-btn" id="import-ics-btn" style="width:100%;text-align:left;color:#1E293B;border-color:transparent;">Import ICS</button>
+          <button class="hero-btn" id="import-json-btn" style="width:100%;text-align:left;color:#1E293B;border-color:transparent;">Import JSON</button>
+          <button class="hero-btn" id="export-json-btn" style="width:100%;text-align:left;color:#1E293B;border-color:transparent;">Export JSON</button>
+          <button class="hero-btn primary" id="backup-btn" style="width:100%;text-align:left;">Backup</button>
+        </div>
       </div>
     </div>
   </div>
@@ -991,13 +1016,19 @@
   </div>
 
   <div class="main">
-    <div class="status-bar" id="status-text"></div>
+    <div class="legend" id="legend" style="display:none;"></div>
+    <div class="status-bar" id="status-text" style="display:none;"></div>
 
-    <div class="legend" id="legend">
-      <!-- legend chips filled by JS, email button appended here -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+      <button class="filter-toggle" id="filter-toggle">🔍 Filter</button>
+      <span class="filter-active-summary" id="filter-summary"></span>
+      <div style="margin-left:auto;display:flex;gap:6px;">
+        <button class="send-all-btn" id="email-all-btn">✉ Email All</button>
+        <button class="send-all-btn" id="gcal-all-btn" style="background:#2563EB;">📅 Google Cal</button>
+      </div>
     </div>
 
-    <div class="filter-bar" id="filter-bar">
+    <div class="filter-bar" id="filter-bar" style="display:none;">
       <div class="filter-group">
         <span class="filter-label">Person</span>
         <div id="person-filters"></div>
@@ -1375,6 +1406,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       locationContainer.appendChild(chip);
     });
+    if (typeof updateFilterSummary === 'function') updateFilterSummary();
   }
 
   statusField.addEventListener('change', () => {
@@ -1641,32 +1673,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderLegend() {
-    const usedLocs = new Set();
-    events.forEach(evt => {
-      const loc = getLocColor(evt);
-      usedLocs.add(loc);
-    });
+    // Legend is now hidden — filters serve the same purpose
     legendEl.innerHTML = '';
-    usedLocs.forEach(loc => {
-      const chip = document.createElement('div');
-      chip.className = 'legend-chip';
-      chip.style.cssText = `background:${loc.bg};border-color:${loc.border};color:${loc.text};`;
-      chip.innerHTML = `<span class="legend-dot" style="background:${loc.text}"></span>${loc.label}`;
-      legendEl.appendChild(chip);
-    });
-    // Compact action buttons inline with legend
-    const emailBtn = document.createElement('button');
-    emailBtn.className = 'send-all-btn';
-    emailBtn.textContent = '\u2709 Email All Events';
-    emailBtn.addEventListener('click', sendAllEvents);
-    legendEl.appendChild(emailBtn);
-
-    const gcalBtn = document.createElement('button');
-    gcalBtn.className = 'send-all-btn';
-    gcalBtn.style.background = '#2563EB';
-    gcalBtn.textContent = '\uD83D\uDCC5 Add All to Google Cal';
-    gcalBtn.addEventListener('click', openAllGCal);
-    legendEl.appendChild(gcalBtn);
+    legendEl.style.display = 'none';
   }
 
   function buildMonths() {
@@ -2203,6 +2212,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Lightbox close
   $('lightbox').addEventListener('click', () => $('lightbox').classList.remove('active'));
+
+  // Settings menu toggle
+  const heroMenu = $('hero-menu');
+  $('menu-toggle').addEventListener('click', (e) => {
+    e.stopPropagation();
+    heroMenu.style.display = heroMenu.style.display === 'none' ? '' : 'none';
+  });
+  document.addEventListener('click', () => { heroMenu.style.display = 'none'; });
+  heroMenu.addEventListener('click', () => { heroMenu.style.display = 'none'; });
+
+  // Filter toggle
+  const filterBar = $('filter-bar');
+  const filterToggle = $('filter-toggle');
+  const filterSummary = $('filter-summary');
+  filterToggle.addEventListener('click', () => {
+    const isOpen = filterBar.style.display !== 'none';
+    filterBar.style.display = isOpen ? 'none' : '';
+    filterToggle.classList.toggle('active', !isOpen);
+  });
+  function updateFilterSummary() {
+    const parts = [];
+    if (activePersonFilters.length) parts.push(activePersonFilters.join(', '));
+    if (activeLocationFilters.length) parts.push(activeLocationFilters.join(', '));
+    filterSummary.textContent = parts.length ? parts.join(' · ') : '';
+    filterToggle.classList.toggle('active', parts.length > 0);
+    if (parts.length > 0) filterBar.style.display = '';
+  }
+
+  // Action buttons
+  $('email-all-btn').addEventListener('click', sendAllEvents);
+  $('gcal-all-btn').addEventListener('click', openAllGCal);
 
   // Event listeners
   $('add-trip-btn').addEventListener('click', () => openModal(null));
