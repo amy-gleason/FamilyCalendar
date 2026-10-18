@@ -6,6 +6,7 @@
 <title>Where is My Fam?</title>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <style>
   :root {
     --bg: #FAFBFE;
@@ -992,9 +993,57 @@
     .side-tabs { top: auto; bottom: 16px; right: 8px; transform: none; flex-direction: row; }
     .side-tab { writing-mode: horizontal-tb; border-radius: 12px; border-right: 1px solid var(--border); padding: 10px 14px; }
   }
+
+  /* Family sign-in gate */
+  body.locked { overflow: hidden; }
+  .gate {
+    position: fixed; inset: 0; z-index: 9999;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+  }
+  .gate[hidden] { display: none; }
+  .gate-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    box-shadow: var(--shadow-lg); padding: 28px 24px; width: 100%; max-width: 380px; text-align: center;
+  }
+  .gate-card h1 { font-size: 1.5rem; margin-bottom: 6px; }
+  .gate-card p { color: var(--muted); font-size: 0.95rem; margin-bottom: 16px; }
+  .gate-card input {
+    width: 100%; padding: 12px 14px; font-size: 1rem; border: 1px solid var(--border);
+    border-radius: 10px; margin-bottom: 12px; font-family: inherit;
+  }
+  .gate-card button {
+    width: 100%; padding: 12px; font-size: 1rem; font-weight: 600; border: none; border-radius: 10px;
+    background: var(--accent); color: #fff; cursor: pointer; font-family: inherit;
+  }
+  .gate-card button:disabled { opacity: 0.6; cursor: default; }
+  .gate-card .gate-link { background: none; color: var(--muted); font-weight: 400; font-size: 0.9rem; margin-top: 8px; text-decoration: underline; }
+  .gate-msg { font-size: 0.9rem; margin-top: 4px; min-height: 1.2em; }
+  .gate-msg.error { color: #DC2626; }
 </style>
 </head>
-<body>
+<body class="locked">
+
+  <div class="gate" id="gate">
+    <div class="gate-card">
+      <h1>Where is My Fam?</h1>
+      <div id="gate-ask">
+        <p>Family only. Enter your email and we'll send you a one-time link. After that, this device remembers you.</p>
+        <input type="email" id="gate-email" placeholder="you@example.com" autocomplete="email" />
+        <button type="button" id="gate-send">Email me a link</button>
+      </div>
+      <div id="gate-sent" hidden>
+        <p>Check your email and tap the link. Open it on <strong>this device</strong>, in this browser.</p>
+        <button type="button" class="gate-link" id="gate-retry">Use a different email</button>
+      </div>
+      <div id="gate-denied" hidden>
+        <p>That email isn't on the family list yet. Ask Amy to add it.</p>
+        <button type="button" class="gate-link" id="gate-signout">Sign out</button>
+      </div>
+      <div class="gate-msg" id="gate-msg"></div>
+    </div>
+  </div>
 
   <div class="hero">
     <div class="hero-top">
@@ -1223,8 +1272,83 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
+  const auth = firebase.auth();
   const messagesRef = db.ref('messages');
   const photosRef = db.ref('photos');
+
+  // ========================
+  // FAMILY SIGN-IN (one email link per device)
+  // ========================
+  // Who gets in is decided by the Realtime Database rules in Firebase,
+  // not here, so family emails never appear in this public file.
+  const SIGNIN_EMAIL_KEY = 'fam_signin_email';
+  const gateEl = document.getElementById('gate');
+  const gateMsg = document.getElementById('gate-msg');
+  const showGateStep = step => {
+    ['ask', 'sent', 'denied'].forEach(s => { document.getElementById('gate-' + s).hidden = s !== step; });
+    gateMsg.textContent = '';
+    gateMsg.className = 'gate-msg';
+  };
+  const gateError = text => { gateMsg.textContent = text; gateMsg.className = 'gate-msg error'; };
+  const unlock = () => { gateEl.hidden = true; document.body.classList.remove('locked'); };
+  const lock = step => { showGateStep(step); gateEl.hidden = false; document.body.classList.add('locked'); };
+
+  // Data listeners start once someone is signed in. A permission error
+  // means the email isn't on the family list in the database rules.
+  const onSignedIn = [];
+  const onDataError = err => {
+    if (err && err.code === 'PERMISSION_DENIED') lock('denied');
+  };
+
+  document.getElementById('gate-send').addEventListener('click', async () => {
+    const email = document.getElementById('gate-email').value.trim().toLowerCase();
+    if (!email.includes('@')) { gateError('Please enter your email.'); return; }
+    const btn = document.getElementById('gate-send');
+    btn.disabled = true;
+    try {
+      await auth.sendSignInLinkToEmail(email, {
+        url: location.origin + location.pathname,
+        handleCodeInApp: true
+      });
+      localStorage.setItem(SIGNIN_EMAIL_KEY, email);
+      showGateStep('sent');
+    } catch (e) {
+      gateError("Couldn't send the link. Check the email and try again.");
+    } finally {
+      btn.disabled = false;
+    }
+  });
+  document.getElementById('gate-email').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('gate-send').click();
+  });
+  document.getElementById('gate-retry').addEventListener('click', () => showGateStep('ask'));
+  document.getElementById('gate-signout').addEventListener('click', () => auth.signOut());
+
+  // Finish sign-in when arriving from the email link
+  if (auth.isSignInWithEmailLink(location.href)) {
+    let email = localStorage.getItem(SIGNIN_EMAIL_KEY);
+    if (!email) email = (prompt('Please confirm your email') || '').trim().toLowerCase();
+    auth.signInWithEmailLink(email, location.href)
+      .then(() => localStorage.removeItem(SIGNIN_EMAIL_KEY))
+      .catch(() => { lock('ask'); gateError('That link expired or was already used. Send a new one.'); })
+      .finally(() => history.replaceState(null, '', location.pathname));
+  }
+
+  let listenersStarted = false;
+  auth.onAuthStateChanged(user => {
+    if (!user) {
+      messagesRef.off();
+      photosRef.off();
+      listenersStarted = false;
+      lock('ask');
+      return;
+    }
+    unlock();
+    if (!listenersStarted) {
+      listenersStarted = true;
+      onSignedIn.forEach(fn => fn());
+    }
+  });
 
   const STORAGE_KEY = 'family_travel_events_v3';
   const FAMILY_EMAIL = 'volgirl71@gmail.com';
@@ -2101,12 +2225,12 @@ document.addEventListener('DOMContentLoaded', () => {
   function escHTML(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
   // Real-time listener — auto-renders when anyone posts
-  messagesRef.on('value', snap => {
+  onSignedIn.push(() => messagesRef.on('value', snap => {
     const data = snap.val() || {};
     cachedMessages = Object.keys(data).map(k => ({ id: k, ...data[k] }));
     cachedMessages.sort((a,b) => (a.ts||'').localeCompare(b.ts||''));
     renderMessages();
-  });
+  }, onDataError));
 
   $('msg-send').addEventListener('click', () => {
     const name = $('msg-name').value.trim();
@@ -2167,12 +2291,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Real-time listener for photos
-  photosRef.on('value', snap => {
+  onSignedIn.push(() => photosRef.on('value', snap => {
     const data = snap.val() || {};
     cachedPhotos = Object.keys(data).map(k => ({ id: k, ...data[k] }));
     cachedPhotos.sort((a,b) => (a.ts||'').localeCompare(b.ts||''));
     renderGallery();
-  });
+  }, onDataError));
 
   function addPhotos(files) {
     let processed = 0;
