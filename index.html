@@ -168,7 +168,7 @@ function render() {
   for (let i = 0; i < first.getDay(); i++) h += '<div class="c e"></div>';
   for (let d = 1; d <= days; d++) {
     const t = new Date(mo.y, mo.m, d, 12).getTime();
-    const here = trips.filter(x => t >= parse(x.start) && t < parse(x.end || x.start) + (x.end && x.end !== x.start ? 0 : DAY));
+    const here = trips.filter(x => t >= parse(x.start) && t <= parse(x.end || x.start));
     h += `<div class="c"><span class="n">${d}</span>${here.map(x => `<span class="code" style="background:${color(x.who)}">${esc(code(x.place))}</span>`).join('')}</div>`;
   }
   $('grid').innerHTML = `<div class="cal">${h}</div>`;
